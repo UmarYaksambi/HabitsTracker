@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Habit Tracker</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0a0a0f; color: #e8e6f0; font-family: 'DM Sans', sans-serif; min-height: 100vh; }
+    .app { max-width: 980px; margin: 0 auto; padding: 32px 24px 80px; }
+
+    .header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 40px; }
+    .header-left h1 { font-family: 'Syne', sans-serif; font-size: 38px; font-weight: 800; letter-spacing: -1.5px; line-height: 1; color: #fff; }
+    .header-left p { font-size: 13px; color: #6b6880; margin-top: 6px; letter-spacing: 0.05em; text-transform: uppercase; }
+    .header-right { display: flex; align-items: center; gap: 16px; }
+    .save-status { font-size: 11px; letter-spacing: 0.05em; transition: color 0.3s; }
+    .month-nav { display: flex; align-items: center; gap: 12px; }
+    .month-nav button { width: 34px; height: 34px; border-radius: 50%; border: 1px solid #2a2835; background: #13111c; color: #a09cb8; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+    .month-nav button:hover { border-color: #7c5cfc; color: #fff; }
+    .month-label { font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700; color: #fff; min-width: 130px; text-align: center; letter-spacing: -0.3px; }
+
+    .stats-bar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 32px; }
+    .stat-card { background: #13111c; border: 1px solid #1e1b2e; border-radius: 14px; padding: 16px 18px; position: relative; overflow: hidden; }
+    .stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: var(--accent, #7c5cfc); }
+    .stat-label { font-size: 11px; color: #6b6880; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
+    .stat-value { font-family: 'Syne', sans-serif; font-size: 26px; font-weight: 800; color: #fff; line-height: 1; }
+    .stat-value span { font-size: 14px; font-weight: 500; color: #6b6880; }
+
+    .grid-wrapper { overflow-x: auto; }
+    .grid-container { background: #0f0d18; border: 1px solid #1e1b2e; border-radius: 20px; overflow: hidden; min-width: 700px; }
+
+    .day-headers { display: grid; background: #13111c; border-bottom: 1px solid #1e1b2e; }
+    .corner { padding: 14px 20px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.1em; color: #6b6880; border-right: 1px solid #1e1b2e; display: flex; align-items: center; }
+    .day-num { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 10px 4px; font-size: 10px; color: #4a4660; border-right: 1px solid #13111c; gap: 3px; min-width: 0; }
+    .day-num .dow { font-size: 9px; text-transform: uppercase; letter-spacing: 0.05em; color: #3d3a52; }
+    .day-num .date { font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 700; color: #6b6880; }
+    .day-num.today .date { color: #7c5cfc; }
+    .day-num.today .dow { color: #7c5cfc; }
+    .day-num.weekend { background: #0d0b16; }
+
+    .habit-row { display: grid; border-bottom: 1px solid #13111c; transition: background 0.1s; }
+    .habit-row:last-child { border-bottom: none; }
+    .habit-row:hover { background: rgba(124,92,252,0.03); }
+    .habit-label { display: flex; align-items: center; gap: 10px; padding: 0 16px; border-right: 1px solid #1e1b2e; height: 48px; min-width: 0; }
+    .habit-emoji { font-size: 15px; flex-shrink: 0; }
+    .habit-name { font-size: 12.5px; font-weight: 500; color: #c4bfda; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .streak-badge { margin-left: auto; font-size: 10px; color: #f59e0b; font-weight: 700; flex-shrink: 0; }
+
+    .check-cell { display: flex; align-items: center; justify-content: center; border-right: 1px solid #0d0b16; cursor: pointer; transition: background 0.1s; }
+    .check-cell:hover { background: rgba(124,92,252,0.08); }
+    .check-cell.weekend { background: rgba(0,0,0,0.15); }
+    .check-cell.checked { background: rgba(124,92,252,0.1); }
+    .check-box { width: 20px; height: 20px; border-radius: 6px; border: 1.5px solid #2a2640; display: flex; align-items: center; justify-content: center; transition: all 0.15s cubic-bezier(0.34, 1.56, 0.64, 1); flex-shrink: 0; }
+    .check-cell:hover .check-box { border-color: #7c5cfc; }
+    .check-box.checked { background: #7c5cfc; border-color: #7c5cfc; transform: scale(1.1); }
+    .check-icon { font-size: 11px; color: #fff; line-height: 1; }
+
+    .progress-row { display: grid; background: #0d0b16; border-top: 2px solid #1e1b2e; }
+    .progress-label { padding: 0 16px; display: flex; align-items: center; font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: #6b6880; border-right: 1px solid #1e1b2e; height: 48px; }
+    .progress-cell { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; border-right: 1px solid #13111c; height: 48px; }
+    .progress-bar-wrap { width: 18px; height: 28px; background: #1e1b2e; border-radius: 4px; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; }
+    .progress-bar-fill { width: 100%; border-radius: 4px; background: linear-gradient(to top, #7c5cfc, #a08aff); transition: height 0.4s cubic-bezier(0.34, 1.56, 0.64, 1); }
+    .progress-pct { font-size: 8px; color: #6b6880; font-family: 'Syne', sans-serif; font-weight: 700; }
+
+    .add-habit-row { display: flex; align-items: center; gap: 10px; padding: 16px 20px; border-top: 1px solid #1e1b2e; }
+    .add-input { flex: 1; background: #13111c; border: 1px solid #2a2835; border-radius: 8px; padding: 8px 14px; color: #e8e6f0; font-family: 'DM Sans', sans-serif; font-size: 13px; outline: none; transition: border-color 0.15s; }
+    .add-input:focus { border-color: #7c5cfc; }
+    .add-input::placeholder { color: #3d3a52; }
+    .add-btn { background: #7c5cfc; color: #fff; border: none; border-radius: 8px; padding: 8px 16px; font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700; cursor: pointer; transition: background 0.15s, transform 0.1s; white-space: nowrap; }
+    .add-btn:hover { background: #6a48f0; transform: translateY(-1px); }
+
+    .weekly-summary { margin-top: 24px; display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; }
+    .week-card { background: #13111c; border: 1px solid #1e1b2e; border-radius: 12px; padding: 14px; }
+    .week-card-label { font-size: 11px; color: #6b6880; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.06em; }
+    .week-card-pct { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 800; color: #fff; }
+    .week-card-bar { height: 4px; background: #1e1b2e; border-radius: 2px; margin-top: 8px; overflow: hidden; }
+    .week-card-bar-fill { height: 100%; border-radius: 2px; background: linear-gradient(to right, #7c5cfc, #a08aff); transition: width 0.5s ease; }
+
+    @media (max-width: 600px) {
+      .stats-bar { grid-template-columns: repeat(2, 1fr); }
+      .header { flex-direction: column; align-items: flex-start; gap: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useCallback } = React;
+
+    const DEFAULT_HABITS = [
+      { id: 1, name: "Wake up at 5:00", emoji: "⏰" },
+      { id: 2, name: "Gym", emoji: "🏋️" },
+      { id: 3, name: "Reading / Learning", emoji: "📚" },
+      { id: 4, name: "Day Planning", emoji: "📋" },
+      { id: 5, name: "Budget Tracking", emoji: "💰" },
+      { id: 6, name: "Project Work", emoji: "💻" },
+      { id: 7, name: "No Alcohol", emoji: "🚫" },
+      { id: 8, name: "Social Media Detox", emoji: "🌿" },
+      { id: 9, name: "Goal Journaling", emoji: "📓" },
+      { id: 10, name: "Cold Shower", emoji: "🚿" },
+    ];
+
+    const DAYS = ["S","M","T","W","T","F","S"];
+    const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+    function getDaysInMonth(year, month) { return new Date(year, month + 1, 0).getDate(); }
+    function getFirstDayOfWeek(year, month) { return new Date(year, month, 1).getDay(); }
+
+    function load(key, fallback) {
+      try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback; } catch { return fallback; }
+    }
+    function save(key, value) {
+      try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
+    }
+
+    function App() {
+      const today = new Date();
+      const [year, setYear] = useState(today.getFullYear());
+      const [month, setMonth] = useState(today.getMonth());
+      const [habits, setHabits] = useState(() => load("ht_habits", DEFAULT_HABITS));
+      const [checked, setChecked] = useState(() => load("ht_checked", {}));
+      const [newHabit, setNewHabit] = useState("");
+      const [saved, setSaved] = useState(true);
+
+      // Persist on every change
+      useEffect(() => {
+        setSaved(false);
+        const t = setTimeout(() => { save("ht_habits", habits); save("ht_checked", checked); setSaved(true); }, 500);
+        return () => clearTimeout(t);
+      }, [habits, checked]);
+
+      const daysInMonth = getDaysInMonth(year, month);
+      const firstDow = getFirstDayOfWeek(year, month);
+      const isCurrentMonth = year === today.getFullYear() && month === today.getMonth();
+
+      const key = (hId, day) => `${year}-${month}-${hId}-${day}`;
+      const toggle = (hId, day) => { const k = key(hId, day); setChecked(p => ({...p, [k]: !p[k]})); };
+      const isChecked = (hId, day) => !!checked[key(hId, day)];
+      const isToday = (day) => isCurrentMonth && day === today.getDate();
+      const isWeekend = (day) => { const d = (firstDow + day - 1) % 7; return d === 0 || d === 6; };
+      const getDow = (day) => DAYS[(firstDow + day - 1) % 7];
+
+      const totalDone = habits.reduce((s, h) => s + Array.from({length: daysInMonth}, (_, i) => isChecked(h.id, i+1) ? 1 : 0).reduce((a,b)=>a+b,0), 0);
+      const totalPossible = habits.length * daysInMonth;
+      const completionPct = totalPossible > 0 ? Math.round(totalDone / totalPossible * 100) : 0;
+      const todayDone = habits.filter(h => isChecked(h.id, today.getDate())).length;
+
+      const getStreak = (hId) => {
+        let streak = 0;
+        const d = isCurrentMonth ? today.getDate() : daysInMonth;
+        for (let i = d; i >= 1; i--) { if (isChecked(hId, i)) streak++; else break; }
+        return streak;
+      };
+
+      const dayProgress = (day) => { const done = habits.filter(h => isChecked(h.id, day)).length; return habits.length > 0 ? done / habits.length : 0; };
+
+      const weeks = [];
+      for (let w = 0; w < 5; w++) {
+        const start = w * 7 - (firstDow - 1);
+        const end = start + 6;
+        let done = 0, possible = 0;
+        for (let d = Math.max(1, start); d <= Math.min(daysInMonth, end); d++) {
+          habits.forEach(h => { possible++; if (isChecked(h.id, d)) done++; });
+        }
+        if (possible > 0) weeks.push({ label: `Week ${w+1}`, pct: Math.round(done/possible*100) });
+      }
+
+      const addHabit = () => {
+        if (!newHabit.trim()) return;
+        const emojis = ["⭐","🎯","🔥","💪","🧘","✍️","🎨","🎵"];
+        setHabits(p => [...p, { id: Date.now(), name: newHabit.trim(), emoji: emojis[p.length % emojis.length] }]);
+        setNewHabit("");
+      };
+
+      const prevMonth = () => { if (month === 0) { setMonth(11); setYear(y => y-1); } else setMonth(m => m-1); };
+      const nextMonth = () => { if (month === 11) { setMonth(0); setYear(y => y+1); } else setMonth(m => m+1); };
+
+      const colTemplate = `180px repeat(${daysInMonth}, 1fr)`;
+
+      return (
+        <div className="app">
+          {/* Header */}
+          <div className="header">
+            <div className="header-left">
+              <h1>Habit Tracker</h1>
+              <p>Build the life you want — one day at a time</p>
+            </div>
+            <div className="header-right">
+              <span className="save-status" style={{color: saved ? "#10b981" : "#f59e0b"}}>
+                {saved ? "✓ Saved" : "Saving…"}
+              </span>
+              <div className="month-nav">
+                <button onClick={prevMonth}>‹</button>
+                <span className="month-label">{MONTHS[month]} {year}</span>
+                <button onClick={nextMonth}>›</button>
+              </div>
+            </div>
+          </div>
+
+          {/* Stats */}
+          <div className="stats-bar">
+            <div className="stat-card" style={{"--accent":"#7c5cfc"}}>
+              <div className="stat-label">Monthly Progress</div>
+              <div className="stat-value">{completionPct}<span>%</span></div>
+            </div>
+            <div className="stat-card" style={{"--accent":"#10b981"}}>
+              <div className="stat-label">Completed Today</div>
+              <div className="stat-value">{isCurrentMonth ? todayDone : "—"}<span>/{habits.length}</span></div>
+            </div>
+            <div className="stat-card" style={{"--accent":"#f59e0b"}}>
+              <div className="stat-label">Total Check-ins</div>
+              <div className="stat-value">{totalDone}</div>
+            </div>
+            <div className="stat-card" style={{"--accent":"#ec4899"}}>
+              <div className="stat-label">Active Habits</div>
+              <div className="stat-value">{habits.length}</div>
+            </div>
+          </div>
+
+          {/* Grid */}
+          <div className="grid-wrapper">
+            <div className="grid-container">
+              {/* Day headers */}
+              <div className="day-headers" style={{gridTemplateColumns: colTemplate}}>
+                <div className="corner">Habit</div>
+                {Array.from({length: daysInMonth}, (_, i) => i+1).map(day => (
+                  <div key={day} className={`day-num ${isToday(day) ? "today" : ""} ${isWeekend(day) ? "weekend" : ""}`}>
+                    <span className="dow">{getDow(day)}</span>
+                    <span className="date">{day}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Habit rows */}
+              {habits.map(habit => {
+                const streak = getStreak(habit.id);
+                return (
+                  <div key={habit.id} className="habit-row" style={{gridTemplateColumns: colTemplate}}>
+                    <div className="habit-label">
+                      <span className="habit-emoji">{habit.emoji}</span>
+                      <span className="habit-name">{habit.name}</span>
+                      {streak >= 3 && <span className="streak-badge">🔥{streak}</span>}
+                    </div>
+                    {Array.from({length: daysInMonth}, (_, i) => i+1).map(day => {
+                      const chk = isChecked(habit.id, day);
+                      return (
+                        <div key={day} className={`check-cell ${chk ? "checked" : ""} ${isWeekend(day) ? "weekend" : ""}`} onClick={() => toggle(habit.id, day)}>
+                          <div className={`check-box ${chk ? "checked" : ""}`}>
+                            {chk && <span className="check-icon">✓</span>}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+
+              {/* Progress row */}
+              <div className="progress-row" style={{gridTemplateColumns: colTemplate}}>
+                <div className="progress-label">Daily %</div>
+                {Array.from({length: daysInMonth}, (_, i) => i+1).map(day => {
+                  const pct = dayProgress(day);
+                  return (
+                    <div key={day} className="progress-cell">
+                      <div className="progress-bar-wrap">
+                        <div className="progress-bar-fill" style={{height: `${pct * 100}%`}} />
+                      </div>
+                      <span className="progress-pct">{Math.round(pct * 100)}%</span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Add habit */}
+              <div className="add-habit-row">
+                <input className="add-input" placeholder="Add a new habit..." value={newHabit}
+                  onChange={e => setNewHabit(e.target.value)} onKeyDown={e => e.key === "Enter" && addHabit()} />
+                <button className="add-btn" onClick={addHabit}>+ Add Habit</button>
+              </div>
+            </div>
+          </div>
+
+          {/* Weekly summaries */}
+          <div className="weekly-summary">
+            {weeks.map(w => (
+              <div key={w.label} className="week-card">
+                <div className="week-card-label">{w.label}</div>
+                <div className="week-card-pct">{w.pct}%</div>
+                <div className="week-card-bar">
+                  <div className="week-card-bar-fill" style={{width: `${w.pct}%`}} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>

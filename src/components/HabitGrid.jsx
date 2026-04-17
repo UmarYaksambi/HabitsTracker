@@ -1,10 +1,11 @@
-import { useState, lazy, Suspense, memo } from 'react';
+import { useState } from 'react';
 import { Plus } from 'lucide-react';
 import HabitRow from './HabitRow';
 import { buildMonthDays, isWeekend, toDateString, DOW_LABELS } from '../utils/date';
 import { getDailyCount } from '../domain/stats';
 
 const EMOJI_OPTIONS = ['⭐', '🎯', '🔥', '💪', '🧘', '✍️', '🎨', '🎵', '🏃', '🥗'];
+
 const COLOR_OPTIONS = [
   { label: 'Violet', value: '#7c5cfc' },
   { label: 'Green', value: '#10b981' },
@@ -120,36 +121,58 @@ function AddHabitRow({ onAdd }) {
             className="flex-1 min-w-[160px] bg-bg-card border border-bg-border rounded-lg px-3 py-1.5 text-xs text-text-primary placeholder-text-faint outline-none focus:border-accent transition-colors"
           />
 
-          <div className="flex gap-1">
-            {EMOJI_OPTIONS.map((em) => (
-              <button
-                key={em}
-                onClick={() => setEmoji(em)}
-                className={`text-base w-7 h-7 rounded flex items-center justify-center transition-colors ${emoji === em ? 'bg-accent/20' : 'hover:bg-bg-border'}`}
-              >
-                {em}
-              </button>
-            ))}
-          </div>
+          <input
+            type="text"
+            placeholder="🙂"
+            value={emoji}
+            onChange={(e) => setEmoji(e.target.value)}
+            className="w-10 text-center bg-bg-card border border-bg-border rounded px-1 py-1 text-sm"
+          />
 
-          <div className="flex gap-1.5">
-            {COLOR_OPTIONS.map((c) => (
-              <button
-                key={c.value}
-                onClick={() => setColor(c.value)}
-                className={`w-5 h-5 rounded-full transition-transform ${color === c.value ? 'scale-125 ring-2 ring-white/30' : ''}`}
-                style={{ background: c.value }}
-                title={c.label}
-              />
-            ))}
+          <div className="flex items-center">
+            <div className="flex gap-1">
+              {EMOJI_OPTIONS.map((em) => (
+                <button
+                  key={em}
+                  onClick={() => setEmoji(em)}
+                  className={`text-base w-7 h-7 rounded flex items-center justify-center transition-colors ${
+                    emoji === em ? 'bg-accent/20' : 'hover:bg-bg-border'
+                  }`}
+                >
+                  {em}
+                </button>
+              ))}
+            </div>
+
+            <div className="mx-3 w-px h-5 bg-bg-border" />
+
+            <div className="flex gap-2 ml-2">
+              {COLOR_OPTIONS.map((c) => (
+                <button
+                  key={c.value}
+                  onClick={() => setColor(c.value)}
+                  className={`w-5 h-5 rounded-full transition-transform ${
+                    color === c.value ? 'scale-125 ring-2 ring-white/30' : ''
+                  }`}
+                  style={{ background: c.value }}
+                  title={c.label}
+                />
+              ))}
+            </div>
           </div>
 
           <button
             onClick={submit}
-            className="px-3 py-1.5 bg-accent text-white rounded-lg text-xs font-syne font-bold hover:bg-accent-hover transition-colors"
+            disabled={!name.trim()}
+            className={`px-3 py-1.5 rounded-lg text-xs font-syne font-bold transition-colors ${
+              name.trim()
+                ? 'bg-accent text-white hover:bg-accent-hover'
+                : 'bg-bg-border text-text-faint cursor-not-allowed'
+            }`}
           >
             Add
           </button>
+
           <button
             onClick={() => setOpen(false)}
             className="px-3 py-1.5 text-text-muted text-xs hover:text-white transition-colors"
@@ -162,16 +185,31 @@ function AddHabitRow({ onAdd }) {
   );
 }
 
-export default function HabitGrid({ habits, logs, year, month, isCompleted, toggleHabit, addHabit, deleteHabit, getStreak }) {
+export default function HabitGrid({
+  habits,
+  logs,
+  year,
+  month,
+  isCompleted,
+  toggleHabit,
+  addHabit,
+  deleteHabit,
+  getStreak,
+}) {
   const days = buildMonthDays(year, month);
   const colTemplate = `180px repeat(${days.length}, minmax(32px, 1fr))`;
 
   return (
     <div className="overflow-x-auto">
       <div className="bg-bg-muted border border-bg-border rounded-2xl overflow-hidden min-w-[700px]">
-        <div className="grid bg-bg-card border-b border-bg-border" style={{ gridTemplateColumns: colTemplate }}>
+        <div
+          className="grid bg-bg-card border-b border-bg-border"
+          style={{ gridTemplateColumns: colTemplate }}
+        >
           <div className="flex items-center px-4 py-3 border-r border-bg-border">
-            <span className="text-[10px] uppercase tracking-widest text-text-muted">Habit</span>
+            <span className="text-[10px] uppercase tracking-widest text-text-muted">
+              Habit
+            </span>
           </div>
           <DayHeaders days={days} year={year} month={month} />
         </div>
@@ -189,11 +227,22 @@ export default function HabitGrid({ habits, logs, year, month, isCompleted, togg
           />
         ))}
 
-        <div className="grid bg-bg-card border-t-2 border-bg-border" style={{ gridTemplateColumns: colTemplate }}>
+        <div
+          className="grid bg-bg-card border-t-2 border-bg-border"
+          style={{ gridTemplateColumns: colTemplate }}
+        >
           <div className="flex items-center px-4 border-r border-bg-border h-12">
-            <span className="text-[10px] uppercase tracking-widest text-text-muted">Daily %</span>
+            <span className="text-[10px] uppercase tracking-widest text-text-muted">
+              Daily %
+            </span>
           </div>
-          <ProgressRow days={days} habits={habits} logs={logs} year={year} month={month} />
+          <ProgressRow
+            days={days}
+            habits={habits}
+            logs={logs}
+            year={year}
+            month={month}
+          />
         </div>
 
         <AddHabitRow onAdd={addHabit} />

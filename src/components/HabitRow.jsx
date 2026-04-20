@@ -33,15 +33,11 @@ const CheckCell = memo(function CheckCell({ checked, weekend, today, color, onTo
   );
 });
 
-// Accepts `logs` directly instead of `isCompleted` so React.memo
-// detects prop changes (new array ref) whenever the store updates.
-function HabitRow({ habit, logs, year, month, toggleHabit, onDelete, streak }) {
+function HabitRow({ habit, logs, year, month, toggleHabit, onDelete, streak, colTemplate }) {
   const days = buildMonthDays(year, month);
   const today = new Date();
   const isCurrentMonth = today.getFullYear() === year && today.getMonth() === month;
-  const colTemplate = `180px repeat(${days.length}, minmax(32px, 1fr))`;
 
-  // O(1) completed-date lookups; recomputes only when logs/habit change.
   const completedDates = useMemo(() => {
     const s = new Set();
     for (const l of logs) {

@@ -1,8 +1,10 @@
 import { useState, lazy, Suspense, useMemo } from 'react';
 import Header from './components/Header';
 import StatsBar from './components/StatsBar';
+import SquadSync from './components/SquadSync';
 import { useHabits } from './hooks/useHabits';
 import { getWeeklyStats } from './domain/stats';
+import { db } from './db/db';
 
 const HabitGrid = lazy(() => import('./components/HabitGrid'));
 const HabitCardMobile = lazy(() => import('./components/HabitCardMobile'));
@@ -30,6 +32,39 @@ function WeeklyBar({ weeks }) {
   );
 }
 
+function SquadTodayBar({ squad }) {
+  if (!squad || squad.length === 0) return null;
+  return (
+    <div className="mb-6">
+      <p className="text-[10px] text-text-muted uppercase tracking-widest mb-2">Squad Today</p>
+      <div className="flex gap-2 flex-wrap">
+        {squad.map((f) => {
+          const pct = f.todayTotal > 0 ? Math.round((f.todayDone / f.todayTotal) * 100) : 0;
+          const allDone = f.todayDone === f.todayTotal && f.todayTotal > 0;
+          return (
+            <div
+              key={f.id}
+              className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs transition-all ${
+                allDone
+                  ? 'bg-green-500/10 border-green-500/30 text-green-400'
+                  : 'bg-bg-card border-bg-border text-text-muted'
+              }`}
+              title={`${f.todayDone}/${f.todayTotal} habits today`}
+            >
+              <span className="text-base">{f.avatar}</span>
+              <span className="font-medium text-white">{f.name}</span>
+              <span className={`font-syne font-bold ${allDone ? 'text-green-400' : 'text-text-muted'}`}>
+                {pct}%
+              </span>
+              {allDone && <span className="text-amber-400">🏆</span>}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function LoadingScreen() {
   return (
     <div className="min-h-screen bg-bg-deep flex items-center justify-center">
@@ -45,6 +80,7 @@ export default function App() {
   const today = new Date();
   const [year, setYear] = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
+  const [squadOpen, setSquadOpen] = useState(false);
 
   const {
     habits,
@@ -59,10 +95,16 @@ export default function App() {
     getMonthStats,
     getTodayCount,
     totalCheckIns,
+    reloadAll,
   } = useHabits();
 
-  const isCurrentMonth = year === today.getFullYear() && month === today.getMonth();
+  // Load squad from localStorage for the today bar
+  const squad = useMemo(() => {
+    try { return JSON.parse(localStorage.getItem('squad_friends') || '[]'); }
+    catch { return []; }
+  }, [squadOpen]); // refresh when modal closes
 
+  const isCurrentMonth = year === today.getFullYear() && month === today.getMonth();
   const monthPct = useMemo(() => getMonthStats(year, month), [habits, logs, year, month]);
   const weeks = useMemo(() => getWeeklyStats(habits, logs, year, month), [habits, logs, year, month]);
   const todayCount = useMemo(() => getTodayCount(), [habits, logs]);
@@ -77,6 +119,12 @@ export default function App() {
     else setMonth((m) => m + 1);
   };
 
+  const handleClearData = async () => {
+    await db.habits.clear();
+    await db.logs.clear();
+    window.location.reload();
+  };
+
   if (loading) return <LoadingScreen />;
 
   return (
@@ -89,6 +137,8 @@ export default function App() {
           onNext={nextMonth}
           onExport={exportData}
           onImport={importData}
+          onClearData={handleClearData}
+          onOpenSquad={() => setSquadOpen(true)}
         />
 
         <StatsBar
@@ -98,6 +148,8 @@ export default function App() {
           totalCheckIns={totalCheckIns}
           isCurrentMonth={isCurrentMonth}
         />
+
+        <SquadTodayBar squad={squad} />
 
         <Suspense fallback={<div className="h-64 bg-bg-card rounded-2xl animate-pulse" />}>
           <div className="hidden lg:block">
@@ -149,6 +201,14 @@ export default function App() {
 
         <WeeklyBar weeks={weeks} />
       </div>
+
+      {squadOpen && (
+        <SquadSync
+          habits={habits}
+          logs={logs}
+          onClose={() => setSquadOpen(false)}
+        />
+      )}
     </div>
   );
 }

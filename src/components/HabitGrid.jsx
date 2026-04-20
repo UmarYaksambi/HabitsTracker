@@ -15,6 +15,9 @@ const COLOR_OPTIONS = [
   { label: 'Pink', value: '#ec4899' },
 ];
 
+// Wider habit name column: 220px instead of 180px
+const HABIT_COL_WIDTH = 220;
+
 function DayHeaders({ days, year, month }) {
   const today = new Date();
   const isCurrentMonth = today.getFullYear() === year && today.getMonth() === month;
@@ -30,15 +33,15 @@ function DayHeaders({ days, year, month }) {
           <div
             key={day}
             className={[
-              'flex flex-col items-center justify-center py-2 px-1 border-r border-bg-muted/60 min-w-0',
+              'flex flex-col items-center justify-center py-2 px-0.5 border-r border-bg-muted/60 min-w-0',
               weekend ? 'bg-black/20' : '',
               isToday ? 'bg-accent-dim' : '',
             ].join(' ')}
           >
-            <span className={`text-[8px] uppercase tracking-wide ${isToday ? 'text-accent-light' : 'text-text-faint'}`}>
+            <span className={`text-[7px] uppercase tracking-wide ${isToday ? 'text-accent-light' : 'text-text-faint'}`}>
               {DOW_LABELS[dow]}
             </span>
-            <span className={`font-syne text-[11px] font-bold mt-0.5 ${isToday ? 'text-accent' : 'text-text-muted'}`}>
+            <span className={`font-syne text-[10px] font-bold mt-0.5 ${isToday ? 'text-accent' : 'text-text-muted'}`}>
               {day}
             </span>
           </div>
@@ -55,10 +58,10 @@ function ProgressRow({ days, habits, logs, year, month }) {
     return habits.length > 0 ? count / habits.length : 0;
   });
 
-  const width = days.length * 32;
+  const width = days.length * 30;
   const height = 60;
   const paddingY = 10;
-  const paddingX = 8;
+  const paddingX = 6;
   const usableWidth = width - paddingX * 2;
 
   const pointsArr = data.map((pct, i) => ({
@@ -71,12 +74,19 @@ function ProgressRow({ days, habits, logs, year, month }) {
 
   return (
     <div className="w-full h-full">
-      <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`}>
+      <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none">
         <defs>
           <linearGradient id="greenStrong" x1="0" x2="0" y1="0" y2="1">
             <stop offset="0%" stopColor="#34d399" />
             <stop offset="100%" stopColor="#059669" />
           </linearGradient>
+          <filter id="glow-green">
+            <feGaussianBlur stdDeviation="2" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
         </defs>
         <polygon
           fill="rgba(16,185,129,0.18)"
@@ -85,21 +95,29 @@ function ProgressRow({ days, habits, logs, year, month }) {
         <polyline
           fill="none"
           stroke="url(#greenStrong)"
-          strokeWidth="3"
+          strokeWidth="2.5"
           strokeLinejoin="round"
           strokeLinecap="round"
           points={points}
         />
         {pointsArr.map((p, i) => (
-          <circle
-            key={i}
-            cx={p.x}
-            cy={p.y}
-            r={p.pct === 1 ? 4.5 : 3.5}
-            fill={p.pct === 1 ? '#22c55e' : '#10b981'}
-            stroke="white"
-            strokeWidth={p.pct === 1 ? 1.5 : 1}
-          />
+          p.pct === 1 ? (
+            <g key={i}>
+              {/* Glowing ring for 100% days */}
+              <circle cx={p.x} cy={p.y} r={7} fill="rgba(34,197,94,0.2)" />
+              <circle cx={p.x} cy={p.y} r={5} fill="#22c55e" stroke="white" strokeWidth="1.5" filter="url(#glow-green)" />
+            </g>
+          ) : (
+            <circle
+              key={i}
+              cx={p.x}
+              cy={p.y}
+              r={3}
+              fill="#10b981"
+              stroke="white"
+              strokeWidth="1"
+            />
+          )
         ))}
       </svg>
     </div>
@@ -212,11 +230,16 @@ export default function HabitGrid({
   getStreak,
 }) {
   const days = buildMonthDays(year, month);
-  const colTemplate = `180px repeat(${days.length}, minmax(32px, 1fr))`;
+  // Use minmax with smaller min to fit 31 days; wider habit col
+  const colTemplate = `${HABIT_COL_WIDTH}px repeat(${days.length}, minmax(28px, 1fr))`;
 
   return (
     <div className="overflow-x-auto">
-      <div className="bg-bg-muted border border-bg-border rounded-2xl overflow-hidden min-w-[700px]">
+      <div
+        className="bg-bg-muted border border-bg-border rounded-2xl overflow-hidden"
+        // Ensure a minimum total width so 31-day months don't squish
+        style={{ minWidth: `${HABIT_COL_WIDTH + days.length * 28 + 16}px` }}
+      >
         <div className="grid bg-bg-card border-b border-bg-border" style={{ gridTemplateColumns: colTemplate }}>
           <div className="flex items-center px-4 py-3 border-r border-bg-border">
             <span className="text-[10px] uppercase tracking-widest text-text-muted">Habit</span>
@@ -234,6 +257,7 @@ export default function HabitGrid({
             toggleHabit={toggleHabit}
             onDelete={deleteHabit}
             streak={getStreak(habit.id)}
+            colTemplate={colTemplate}
           />
         ))}
 

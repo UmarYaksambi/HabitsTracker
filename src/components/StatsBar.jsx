@@ -1,17 +1,24 @@
-import { useMemo } from 'react';
-
-function StatCard({ label, value, suffix, accent }) {
+function StatCard({ label, value, suffix, accent, icon }) {
   return (
     <div
-      className="relative bg-bg-card border border-bg-border rounded-2xl px-4 py-4 overflow-hidden"
-      style={{ '--accent': accent }}
+      className="relative bg-bg-card border border-bg-border rounded-2xl px-4 py-4 overflow-hidden group hover:border-opacity-60 transition-all duration-200"
+      style={{ '--accent': accent, borderColor: `${accent}25` }}
     >
+      {/* Top accent bar */}
       <div
-        className="absolute top-0 left-0 right-0 h-0.5"
+        className="absolute top-0 left-0 right-0 h-[2px] opacity-80"
+        style={{ background: `linear-gradient(to right, ${accent}, ${accent}44)` }}
+      />
+      {/* Subtle glow in corner */}
+      <div
+        className="absolute -top-4 -right-4 w-16 h-16 rounded-full opacity-10 blur-xl"
         style={{ background: accent }}
       />
-      <p className="text-xs text-text-muted uppercase tracking-widest mb-1.5">{label}</p>
-      <p className="font-syne text-2xl font-extrabold text-white leading-none">
+
+      <p className="text-[10px] text-text-muted uppercase tracking-widest mb-2 relative z-10">
+        {label}
+      </p>
+      <p className="font-syne text-2xl font-extrabold text-white leading-none relative z-10">
         {value}
         {suffix && (
           <span className="text-sm font-medium text-text-muted ml-1">{suffix}</span>

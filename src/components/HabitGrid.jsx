@@ -49,38 +49,74 @@ function DayHeaders({ days, year, month }) {
 }
 
 function ProgressRow({ days, habits, logs, year, month }) {
-  return (
-    <>
-      {days.map((day) => {
-        const dateStr = toDateString(new Date(year, month, day));
-        const count = getDailyCount(habits, logs, dateStr);
-        const pct = habits.length > 0 ? count / habits.length : 0;
-        const weekend = isWeekend(year, month, day);
+  const data = days.map((day) => {
+    const dateStr = toDateString(new Date(year, month, day));
+    const count = getDailyCount(habits, logs, dateStr);
+    return habits.length > 0 ? count / habits.length : 0;
+  });
 
-        return (
-          <div
-            key={day}
-            className={[
-              'flex flex-col items-center justify-center gap-1 border-r border-bg-muted/60 h-12',
-              weekend ? 'bg-black/20' : '',
-            ].join(' ')}
-          >
-            <div className="w-[18px] h-7 bg-bg-border rounded overflow-hidden flex flex-col justify-end">
-              <div
-                className="w-full rounded transition-all duration-500"
-                style={{
-                  height: `${pct * 100}%`,
-                  background: 'linear-gradient(to top, #7c5cfc, #a08aff)',
-                }}
-              />
-            </div>
-            <span className="text-[8px] text-text-faint font-syne font-bold">
-              {Math.round(pct * 100)}
-            </span>
-          </div>
-        );
-      })}
-    </>
+  const width = days.length * 32;
+  const height = 60;
+  const paddingY = 10;
+  const paddingX = 8; // 🔥 FIX: horizontal padding to prevent clipping
+
+  const usableWidth = width - paddingX * 2;
+
+  const pointsArr = data.map((pct, i) => {
+    const x =
+      paddingX + (i / (data.length - 1)) * usableWidth; // 🔥 shifted inside
+    const y = paddingY + (1 - pct) * (height - paddingY * 2);
+    return { x, y, pct };
+  });
+
+  const points = pointsArr.map(p => `${p.x},${p.y}`).join(' ');
+
+  return (
+    <div className="w-full h-full">
+      <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`}>
+
+        {/* Gradient */}
+        <defs>
+          <linearGradient id="greenStrong" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor="#34d399" />
+            <stop offset="100%" stopColor="#059669" />
+          </linearGradient>
+        </defs>
+
+        {/* Area */}
+        <polygon
+          fill="rgba(16,185,129,0.18)"
+          points={`${points} ${width - paddingX},${height} ${paddingX},${height}`}
+        />
+
+        {/* Line */}
+        <polyline
+          fill="none"
+          stroke="url(#greenStrong)"
+          strokeWidth="3"
+          strokeLinejoin="round"
+          strokeLinecap="round"
+          points={points}
+        />
+
+        {/* Dots */}
+        {pointsArr.map((p, i) => {
+          const isPerfect = p.pct === 1;
+
+          return (
+            <circle
+              key={i}
+              cx={p.x}
+              cy={p.y}
+              r={isPerfect ? 4.5 : 3.5}
+              fill={isPerfect ? '#22c55e' : '#10b981'}
+              stroke="white"
+              strokeWidth={isPerfect ? 1.5 : 1}
+            />
+          );
+        })}
+      </svg>
+    </div>
   );
 }
 
@@ -117,7 +153,7 @@ function AddHabitRow({ onAdd }) {
             placeholder="Habit name..."
             value={name}
             onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && submit()}
+            onKeyDown={(e) => name.trim() && e.key === 'Enter' && submit()}
             className="flex-1 min-w-[160px] bg-bg-card border border-bg-border rounded-lg px-3 py-1.5 text-xs text-text-primary placeholder-text-faint outline-none focus:border-accent transition-colors"
           />
 
@@ -135,7 +171,7 @@ function AddHabitRow({ onAdd }) {
                 <button
                   key={em}
                   onClick={() => setEmoji(em)}
-                  className={`text-base w-7 h-7 rounded flex items-center justify-center transition-colors ${
+                  className={`text-base w-7 h-7 rounded flex items-center justify-center ${
                     emoji === em ? 'bg-accent/20' : 'hover:bg-bg-border'
                   }`}
                 >
@@ -151,7 +187,7 @@ function AddHabitRow({ onAdd }) {
                 <button
                   key={c.value}
                   onClick={() => setColor(c.value)}
-                  className={`w-5 h-5 rounded-full transition-transform ${
+                  className={`w-5 h-5 rounded-full ${
                     color === c.value ? 'scale-125 ring-2 ring-white/30' : ''
                   }`}
                   style={{ background: c.value }}
@@ -164,7 +200,7 @@ function AddHabitRow({ onAdd }) {
           <button
             onClick={submit}
             disabled={!name.trim()}
-            className={`px-3 py-1.5 rounded-lg text-xs font-syne font-bold transition-colors ${
+            className={`px-3 py-1.5 rounded-lg text-xs font-syne font-bold ${
               name.trim()
                 ? 'bg-accent text-white hover:bg-accent-hover'
                 : 'bg-bg-border text-text-faint cursor-not-allowed'
@@ -175,7 +211,7 @@ function AddHabitRow({ onAdd }) {
 
           <button
             onClick={() => setOpen(false)}
-            className="px-3 py-1.5 text-text-muted text-xs hover:text-white transition-colors"
+            className="px-3 py-1.5 text-text-muted text-xs hover:text-white"
           >
             Cancel
           </button>
@@ -202,18 +238,16 @@ export default function HabitGrid({
   return (
     <div className="overflow-x-auto">
       <div className="bg-bg-muted border border-bg-border rounded-2xl overflow-hidden min-w-[700px]">
-        <div
-          className="grid bg-bg-card border-b border-bg-border"
-          style={{ gridTemplateColumns: colTemplate }}
-        >
+
+        {/* Header */}
+        <div className="grid bg-bg-card border-b border-bg-border" style={{ gridTemplateColumns: colTemplate }}>
           <div className="flex items-center px-4 py-3 border-r border-bg-border">
-            <span className="text-[10px] uppercase tracking-widest text-text-muted">
-              Habit
-            </span>
+            <span className="text-[10px] uppercase tracking-widest text-text-muted">Habit</span>
           </div>
           <DayHeaders days={days} year={year} month={month} />
         </div>
 
+        {/* Habit Rows */}
         {habits.map((habit) => (
           <HabitRow
             key={habit.id}
@@ -227,22 +261,27 @@ export default function HabitGrid({
           />
         ))}
 
-        <div
-          className="grid bg-bg-card border-t-2 border-bg-border"
-          style={{ gridTemplateColumns: colTemplate }}
-        >
-          <div className="flex items-center px-4 border-r border-bg-border h-12">
+        {/* Chart Row */}
+        <div className="grid bg-bg-card border-t-2 border-bg-border" style={{ gridTemplateColumns: colTemplate }}>
+          <div className="flex items-center px-4 h-16 border-r border-bg-border">
             <span className="text-[10px] uppercase tracking-widest text-text-muted">
               Daily %
             </span>
           </div>
-          <ProgressRow
-            days={days}
-            habits={habits}
-            logs={logs}
-            year={year}
-            month={month}
-          />
+
+          <div className="flex items-center h-16 py-1" style={{ gridColumn: `span ${days.length}` }}>
+            <div className="w-full h-full flex items-center pr-2">
+              <div className="w-full h-full rounded-md bg-bg-muted/30 px-1">
+                <ProgressRow
+                  days={days}
+                  habits={habits}
+                  logs={logs}
+                  year={year}
+                  month={month}
+                />
+              </div>
+            </div>
+          </div>
         </div>
 
         <AddHabitRow onAdd={addHabit} />

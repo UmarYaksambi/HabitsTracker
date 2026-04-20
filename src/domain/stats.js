@@ -55,7 +55,7 @@ export function getWeeklyStats(habits, logs, year, month) {
     }
 
     if (total > 0) {
-      weeks.push({ label: `Wk ${w + 1}`, pct: Math.round((done / total) * 100), done, total });
+      weeks.push({ label: `Week ${w + 1}`, pct: Math.round((done / total) * 100), done, total });
     }
   }
 

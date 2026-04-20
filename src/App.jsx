@@ -2,7 +2,6 @@ import { useState, lazy, Suspense, useMemo } from 'react';
 import Header from './components/Header';
 import StatsBar from './components/StatsBar';
 import { useHabits } from './hooks/useHabits';
-import { todayString } from './utils/date';
 import { getWeeklyStats } from './domain/stats';
 
 const HabitGrid = lazy(() => import('./components/HabitGrid'));
@@ -51,7 +50,6 @@ export default function App() {
     habits,
     logs,
     loading,
-    isCompleted,
     toggleHabit,
     addHabit,
     deleteHabit,
@@ -108,7 +106,6 @@ export default function App() {
               logs={logs}
               year={year}
               month={month}
-              isCompleted={isCompleted}
               toggleHabit={toggleHabit}
               addHabit={addHabit}
               deleteHabit={deleteHabit}
@@ -121,9 +118,9 @@ export default function App() {
               <HabitCardMobile
                 key={habit.id}
                 habit={habit}
+                logs={logs}
                 year={year}
                 month={month}
-                isCompleted={isCompleted}
                 toggleHabit={toggleHabit}
                 onDelete={deleteHabit}
                 streak={getStreak(habit.id)}

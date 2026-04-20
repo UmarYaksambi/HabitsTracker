@@ -58,38 +58,30 @@ function ProgressRow({ days, habits, logs, year, month }) {
   const width = days.length * 32;
   const height = 60;
   const paddingY = 10;
-  const paddingX = 8; // 🔥 FIX: horizontal padding to prevent clipping
-
+  const paddingX = 8;
   const usableWidth = width - paddingX * 2;
 
-  const pointsArr = data.map((pct, i) => {
-    const x =
-      paddingX + (i / (data.length - 1)) * usableWidth; // 🔥 shifted inside
-    const y = paddingY + (1 - pct) * (height - paddingY * 2);
-    return { x, y, pct };
-  });
+  const pointsArr = data.map((pct, i) => ({
+    x: paddingX + (i / Math.max(data.length - 1, 1)) * usableWidth,
+    y: paddingY + (1 - pct) * (height - paddingY * 2),
+    pct,
+  }));
 
-  const points = pointsArr.map(p => `${p.x},${p.y}`).join(' ');
+  const points = pointsArr.map((p) => `${p.x},${p.y}`).join(' ');
 
   return (
     <div className="w-full h-full">
       <svg width="100%" height={height} viewBox={`0 0 ${width} ${height}`}>
-
-        {/* Gradient */}
         <defs>
           <linearGradient id="greenStrong" x1="0" x2="0" y1="0" y2="1">
             <stop offset="0%" stopColor="#34d399" />
             <stop offset="100%" stopColor="#059669" />
           </linearGradient>
         </defs>
-
-        {/* Area */}
         <polygon
           fill="rgba(16,185,129,0.18)"
           points={`${points} ${width - paddingX},${height} ${paddingX},${height}`}
         />
-
-        {/* Line */}
         <polyline
           fill="none"
           stroke="url(#greenStrong)"
@@ -98,23 +90,17 @@ function ProgressRow({ days, habits, logs, year, month }) {
           strokeLinecap="round"
           points={points}
         />
-
-        {/* Dots */}
-        {pointsArr.map((p, i) => {
-          const isPerfect = p.pct === 1;
-
-          return (
-            <circle
-              key={i}
-              cx={p.x}
-              cy={p.y}
-              r={isPerfect ? 4.5 : 3.5}
-              fill={isPerfect ? '#22c55e' : '#10b981'}
-              stroke="white"
-              strokeWidth={isPerfect ? 1.5 : 1}
-            />
-          );
-        })}
+        {pointsArr.map((p, i) => (
+          <circle
+            key={i}
+            cx={p.x}
+            cy={p.y}
+            r={p.pct === 1 ? 4.5 : 3.5}
+            fill={p.pct === 1 ? '#22c55e' : '#10b981'}
+            stroke="white"
+            strokeWidth={p.pct === 1 ? 1.5 : 1}
+          />
+        ))}
       </svg>
     </div>
   );
@@ -156,7 +142,6 @@ function AddHabitRow({ onAdd }) {
             onKeyDown={(e) => name.trim() && e.key === 'Enter' && submit()}
             className="flex-1 min-w-[160px] bg-bg-card border border-bg-border rounded-lg px-3 py-1.5 text-xs text-text-primary placeholder-text-faint outline-none focus:border-accent transition-colors"
           />
-
           <input
             type="text"
             placeholder="🙂"
@@ -164,7 +149,6 @@ function AddHabitRow({ onAdd }) {
             onChange={(e) => setEmoji(e.target.value)}
             className="w-10 text-center bg-bg-card border border-bg-border rounded px-1 py-1 text-sm"
           />
-
           <div className="flex items-center">
             <div className="flex gap-1">
               {EMOJI_OPTIONS.map((em) => (
@@ -179,9 +163,7 @@ function AddHabitRow({ onAdd }) {
                 </button>
               ))}
             </div>
-
             <div className="mx-3 w-px h-5 bg-bg-border" />
-
             <div className="flex gap-2 ml-2">
               {COLOR_OPTIONS.map((c) => (
                 <button
@@ -196,7 +178,6 @@ function AddHabitRow({ onAdd }) {
               ))}
             </div>
           </div>
-
           <button
             onClick={submit}
             disabled={!name.trim()}
@@ -208,7 +189,6 @@ function AddHabitRow({ onAdd }) {
           >
             Add
           </button>
-
           <button
             onClick={() => setOpen(false)}
             className="px-3 py-1.5 text-text-muted text-xs hover:text-white"
@@ -226,7 +206,6 @@ export default function HabitGrid({
   logs,
   year,
   month,
-  isCompleted,
   toggleHabit,
   addHabit,
   deleteHabit,
@@ -238,8 +217,6 @@ export default function HabitGrid({
   return (
     <div className="overflow-x-auto">
       <div className="bg-bg-muted border border-bg-border rounded-2xl overflow-hidden min-w-[700px]">
-
-        {/* Header */}
         <div className="grid bg-bg-card border-b border-bg-border" style={{ gridTemplateColumns: colTemplate }}>
           <div className="flex items-center px-4 py-3 border-r border-bg-border">
             <span className="text-[10px] uppercase tracking-widest text-text-muted">Habit</span>
@@ -247,38 +224,27 @@ export default function HabitGrid({
           <DayHeaders days={days} year={year} month={month} />
         </div>
 
-        {/* Habit Rows */}
         {habits.map((habit) => (
           <HabitRow
             key={habit.id}
             habit={habit}
+            logs={logs}
             year={year}
             month={month}
-            isCompleted={isCompleted}
             toggleHabit={toggleHabit}
             onDelete={deleteHabit}
             streak={getStreak(habit.id)}
           />
         ))}
 
-        {/* Chart Row */}
         <div className="grid bg-bg-card border-t-2 border-bg-border" style={{ gridTemplateColumns: colTemplate }}>
           <div className="flex items-center px-4 h-16 border-r border-bg-border">
-            <span className="text-[10px] uppercase tracking-widest text-text-muted">
-              Daily %
-            </span>
+            <span className="text-[10px] uppercase tracking-widest text-text-muted">Daily %</span>
           </div>
-
           <div className="flex items-center h-16 py-1" style={{ gridColumn: `span ${days.length}` }}>
             <div className="w-full h-full flex items-center pr-2">
               <div className="w-full h-full rounded-md bg-bg-muted/30 px-1">
-                <ProgressRow
-                  days={days}
-                  habits={habits}
-                  logs={logs}
-                  year={year}
-                  month={month}
-                />
+                <ProgressRow days={days} habits={habits} logs={logs} year={year} month={month} />
               </div>
             </div>
           </div>

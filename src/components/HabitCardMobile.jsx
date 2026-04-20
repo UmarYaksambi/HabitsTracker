@@ -1,14 +1,21 @@
-import { useState, memo } from 'react';
+import { useState, memo, useMemo } from 'react';
 import { Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import { buildMonthDays, isWeekend, toDateString } from '../utils/date';
 
-function MiniCalendar({ habit, year, month, isCompleted, toggleHabit }) {
+function MiniCalendar({ habit, logs, year, month, toggleHabit }) {
   const days = buildMonthDays(year, month);
   const firstDow = new Date(year, month, 1).getDay();
   const today = new Date();
   const isCurrentMonth = today.getFullYear() === year && today.getMonth() === month;
-
   const blanks = Array.from({ length: firstDow });
+
+  const completedDates = useMemo(() => {
+    const s = new Set();
+    for (const l of logs) {
+      if (l.habitId === habit.id && l.completed) s.add(l.date);
+    }
+    return s;
+  }, [logs, habit.id]);
 
   return (
     <div className="mt-3">
@@ -25,7 +32,7 @@ function MiniCalendar({ habit, year, month, isCompleted, toggleHabit }) {
         ))}
         {days.map((day) => {
           const dateStr = toDateString(new Date(year, month, day));
-          const checked = isCompleted(habit.id, dateStr);
+          const checked = completedDates.has(dateStr);
           const weekend = isWeekend(year, month, day);
           const isToday = isCurrentMonth && day === today.getDate();
 
@@ -54,18 +61,28 @@ function MiniCalendar({ habit, year, month, isCompleted, toggleHabit }) {
   );
 }
 
-function HabitCardMobile({ habit, year, month, isCompleted, toggleHabit, onDelete, streak }) {
+// Accepts `logs` directly instead of `isCompleted` so React.memo
+// detects prop changes (new array ref) whenever the store updates.
+function HabitCardMobile({ habit, logs, year, month, toggleHabit, onDelete, streak }) {
   const [expanded, setExpanded] = useState(false);
   const today = new Date();
   const isCurrentMonth = today.getFullYear() === year && today.getMonth() === month;
   const todayStr = toDateString(today);
-  const todayDone = isCurrentMonth && isCompleted(habit.id, todayStr);
+
+  const completedDates = useMemo(() => {
+    const s = new Set();
+    for (const l of logs) {
+      if (l.habitId === habit.id && l.completed) s.add(l.date);
+    }
+    return s;
+  }, [logs, habit.id]);
+
+  const todayDone = isCurrentMonth && completedDates.has(todayStr);
 
   const days = buildMonthDays(year, month);
-  const completedCount = days.filter((d) => {
-    const ds = toDateString(new Date(year, month, d));
-    return isCompleted(habit.id, ds);
-  }).length;
+  const completedCount = days.filter((d) =>
+    completedDates.has(toDateString(new Date(year, month, d)))
+  ).length;
   const pct = days.length > 0 ? Math.round((completedCount / days.length) * 100) : 0;
 
   return (
@@ -94,9 +111,7 @@ function HabitCardMobile({ habit, year, month, isCompleted, toggleHabit, onDelet
               onClick={() => toggleHabit(habit.id, todayStr)}
               className={[
                 'w-8 h-8 rounded-xl flex items-center justify-center transition-all duration-150 text-sm',
-                todayDone
-                  ? 'scale-110'
-                  : 'bg-bg-muted border border-bg-border',
+                todayDone ? 'scale-110' : 'bg-bg-muted border border-bg-border',
               ].join(' ')}
               style={todayDone ? { background: habit.color || '#7c5cfc' } : {}}
               title="Toggle today"
@@ -125,9 +140,9 @@ function HabitCardMobile({ habit, year, month, isCompleted, toggleHabit, onDelet
         <div className="px-4 pb-4 border-t border-bg-border/60 pt-3 animate-fade-in">
           <MiniCalendar
             habit={habit}
+            logs={logs}
             year={year}
             month={month}
-            isCompleted={isCompleted}
             toggleHabit={toggleHabit}
           />
         </div>

@@ -1,6 +1,6 @@
-import { memo } from 'react';
+import { memo, useMemo } from 'react';
 import { Trash2 } from 'lucide-react';
-import { buildMonthDays, isWeekend, toDateString, DOW_LABELS, getDayOfWeek } from '../utils/date';
+import { buildMonthDays, isWeekend, toDateString } from '../utils/date';
 
 const CheckCell = memo(function CheckCell({ checked, weekend, today, color, onToggle }) {
   return (
@@ -33,13 +33,22 @@ const CheckCell = memo(function CheckCell({ checked, weekend, today, color, onTo
   );
 });
 
-function HabitRow({ habit, year, month, isCompleted, toggleHabit, onDelete, streak }) {
+// Accepts `logs` directly instead of `isCompleted` so React.memo
+// detects prop changes (new array ref) whenever the store updates.
+function HabitRow({ habit, logs, year, month, toggleHabit, onDelete, streak }) {
   const days = buildMonthDays(year, month);
   const today = new Date();
-  const isCurrentMonth =
-    today.getFullYear() === year && today.getMonth() === month;
-
+  const isCurrentMonth = today.getFullYear() === year && today.getMonth() === month;
   const colTemplate = `180px repeat(${days.length}, minmax(32px, 1fr))`;
+
+  // O(1) completed-date lookups; recomputes only when logs/habit change.
+  const completedDates = useMemo(() => {
+    const s = new Set();
+    for (const l of logs) {
+      if (l.habitId === habit.id && l.completed) s.add(l.date);
+    }
+    return s;
+  }, [logs, habit.id]);
 
   return (
     <div
@@ -66,7 +75,7 @@ function HabitRow({ habit, year, month, isCompleted, toggleHabit, onDelete, stre
 
       {days.map((day) => {
         const dateStr = toDateString(new Date(year, month, day));
-        const checked = isCompleted(habit.id, dateStr);
+        const checked = completedDates.has(dateStr);
         const weekend = isWeekend(year, month, day);
         const isToday = isCurrentMonth && day === today.getDate();
 

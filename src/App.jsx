@@ -1,10 +1,11 @@
-import { useState, lazy, Suspense, useMemo } from 'react';
+import { useState, lazy, Suspense, useMemo, useEffect } from 'react';
 import Header from './components/Header';
 import StatsBar from './components/StatsBar';
 import SquadSync from './components/SquadSync';
 import { useHabits } from './hooks/useHabits';
 import { getWeeklyStats } from './domain/stats';
 import { db } from './db/db';
+import { pushMyProfile } from './hooks/useSquad';
 
 const HabitGrid = lazy(() => import('./components/HabitGrid'));
 const HabitCardMobile = lazy(() => import('./components/HabitCardMobile'));
@@ -103,6 +104,11 @@ export default function App() {
     try { return JSON.parse(localStorage.getItem('squad_friends') || '[]'); }
     catch { return []; }
   }, [squadOpen]); // refresh when modal closes
+
+  // Push to Supabase whenever habits or logs change (no-op if not registered)
+  useEffect(() => {
+    pushMyProfile(habits, logs);
+  }, [habits, logs]);
 
   const isCurrentMonth = year === today.getFullYear() && month === today.getMonth();
   const monthPct = useMemo(() => getMonthStats(year, month), [habits, logs, year, month]);

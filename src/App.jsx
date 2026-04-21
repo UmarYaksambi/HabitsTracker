@@ -1,8 +1,10 @@
 import { useState, lazy, Suspense, useMemo } from 'react';
-import Header from './components/Header';
-import StatsBar from './components/StatsBar';
+import Header        from './components/Header';
+import StatsBar      from './components/StatsBar';
+import SquadQuickStats from './components/SquadQuickStats';
 import { useHabits } from './hooks/useHabits';
-import { useAuth } from './hooks/useAuth';
+import { useAuth }   from './hooks/useAuth';
+import { useSquad }  from './hooks/useSquad';
 import { getWeeklyStats } from './domain/stats';
 import { db } from './db/db';
 
@@ -15,14 +17,14 @@ function WeeklyBar({ weeks }) {
   if (weeks.length === 0) return null;
   return (
     <div className="mt-6 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-      {weeks.map(w => (
+      {weeks.map((w) => (
         <div key={w.label} className="bg-bg-card border border-bg-border rounded-xl p-3">
           <p className="text-[10px] text-text-muted uppercase tracking-widest mb-2">{w.label}</p>
           <p className="font-syne text-xl font-extrabold text-white">{w.pct}%</p>
           <div className="h-1 bg-bg-border rounded-full mt-2 overflow-hidden">
             <div
               className="h-full rounded-full transition-all duration-500"
-              style={{ width: `${w.pct}%`, background: 'linear-gradient(to right, #7c5cfc, #a08aff)' }}
+              style={{ width: `${w.pct}%`, background: 'linear-gradient(to right,#7c5cfc,#a08aff)' }}
             />
           </div>
         </div>
@@ -37,7 +39,7 @@ function LoadingScreen() {
     <div className="min-h-screen bg-bg-deep flex items-center justify-center">
       <div className="text-center">
         <div className="w-10 h-10 border-2 border-accent border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-        <p className="text-text-muted text-sm">Loading your habits...</p>
+        <p className="text-text-muted text-sm">Loading your habits…</p>
       </div>
     </div>
   );
@@ -46,13 +48,16 @@ function LoadingScreen() {
 // ── App ───────────────────────────────────────────────────────────────────────
 export default function App() {
   const today = new Date();
-  const [year,      setYear]      = useState(today.getFullYear());
-  const [month,     setMonth]     = useState(today.getMonth());
-  const [squadOpen, setSquadOpen] = useState(false);
+  const [year,        setYear]        = useState(today.getFullYear());
+  const [month,       setMonth]       = useState(today.getMonth());
+  const [squadOpen,   setSquadOpen]   = useState(false);
+  // When a friend chip is clicked we open SquadSync pre-focused on that friend
+  const [initialFriend, setInitialFriend] = useState(null);
 
-  // Auth — used only to pass down to SquadSync
+  // Auth
   const { session, user, authLoading } = useAuth();
 
+  // Habit data
   const {
     habits, logs, loading,
     toggleHabit, addHabit, deleteHabit,
@@ -60,18 +65,42 @@ export default function App() {
     getMonthStats, getTodayCount, totalCheckIns,
   } = useHabits();
 
+  // ── Squad — single source of truth, lifted to App ─────────────────────────
+  // Calling useSquad here means:
+  //  • profile pushes happen in the background even when SquadSync is closed
+  //  • quick stats widget always has fresh data
+  //  • SquadSync receives data as props (no double Supabase calls)
+  const squad = useSquad(habits, logs, user);
+
+  // ── Derived stats ──────────────────────────────────────────────────────────
   const isCurrentMonth = year === today.getFullYear() && month === today.getMonth();
   const monthPct   = useMemo(() => getMonthStats(year, month),                [habits, logs, year, month]);
   const weeks      = useMemo(() => getWeeklyStats(habits, logs, year, month), [habits, logs, year, month]);
   const todayCount = useMemo(() => getTodayCount(),                           [habits, logs]);
 
-  const prevMonth = () => { if (month === 0) { setMonth(11); setYear(y => y - 1); } else setMonth(m => m - 1); };
-  const nextMonth = () => { if (month === 11) { setMonth(0); setYear(y => y + 1); } else setMonth(m => m + 1); };
+  const prevMonth = () => {
+    if (month === 0) { setMonth(11); setYear((y) => y - 1); }
+    else setMonth((m) => m - 1);
+  };
+  const nextMonth = () => {
+    if (month === 11) { setMonth(0); setYear((y) => y + 1); }
+    else setMonth((m) => m + 1);
+  };
 
   const handleClearData = async () => {
     await db.habits.clear();
     await db.logs.clear();
     window.location.reload();
+  };
+
+  const handleOpenSquad = () => {
+    setInitialFriend(null);
+    setSquadOpen(true);
+  };
+
+  const handleViewFriend = (friend) => {
+    setInitialFriend(friend);
+    setSquadOpen(true);
   };
 
   if (loading || authLoading) return <LoadingScreen />;
@@ -84,7 +113,7 @@ export default function App() {
           onPrev={prevMonth} onNext={nextMonth}
           onExport={exportData} onImport={importData}
           onClearData={handleClearData}
-          onOpenSquad={() => setSquadOpen(true)}
+          onOpenSquad={handleOpenSquad}
         />
 
         <StatsBar
@@ -92,6 +121,17 @@ export default function App() {
           habitCount={habits.length} totalCheckIns={totalCheckIns}
           isCurrentMonth={isCurrentMonth}
         />
+
+        {/* ── InnerCircle quick-glance widget (only if registered + has friends) */}
+        {squad.myUser && (
+          <SquadQuickStats
+            friends={squad.friends}
+            myHabits={habits}
+            myLogs={logs}
+            onOpenSquad={handleOpenSquad}
+            onViewFriend={handleViewFriend}
+          />
+        )}
 
         <Suspense fallback={<div className="h-64 bg-bg-card rounded-2xl animate-pulse" />}>
           <div className="hidden lg:block">
@@ -103,7 +143,7 @@ export default function App() {
           </div>
 
           <div className="lg:hidden flex flex-col gap-3">
-            {habits.map(habit => (
+            {habits.map((habit) => (
               <HabitCardMobile
                 key={habit.id} habit={habit} logs={logs}
                 year={year} month={month}
@@ -121,7 +161,10 @@ export default function App() {
             )}
 
             <button
-              onClick={() => { const n = prompt('Habit name?'); if (n?.trim()) addHabit(n, '', ''); }}
+              onClick={() => {
+                const n = prompt('Habit name?');
+                if (n?.trim()) addHabit(n, '', '');
+              }}
               className="flex items-center justify-center gap-2 w-full py-3 border border-dashed border-bg-border rounded-2xl text-text-muted text-sm hover:border-accent hover:text-accent transition-colors"
             >
               + Add habit
@@ -132,14 +175,31 @@ export default function App() {
         <WeeklyBar weeks={weeks} />
       </div>
 
-      {/* SquadSync is lazy-loaded and owns its own useSquad instance */}
+      {/* ── SquadSync modal — receives all squad state + actions as props ────── */}
       {squadOpen && (
         <Suspense fallback={null}>
           <SquadSync
+            // squad state
+            myUser={squad.myUser}
+            friends={squad.friends}
+            loading={squad.loading}
+            error={squad.error}
+            setError={squad.setError}
+            // squad actions
+            register={squad.register}
+            generateInviteCode={squad.generateInviteCode}
+            addFriendWithCode={squad.addFriendWithCode}
+            removeFriend={squad.removeFriend}
+            deleteAccount={squad.deleteAccount}
+            refetch={squad.refetch}
+            // context
             habits={habits}
             logs={logs}
             authUser={user}
-            onClose={() => setSquadOpen(false)}
+            session={session}
+            // pre-select a friend (from quick stats chip click)
+            initialFriend={initialFriend}
+            onClose={() => { setSquadOpen(false); setInitialFriend(null); }}
           />
         </Suspense>
       )}

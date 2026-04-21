@@ -1,17 +1,16 @@
 import { useState } from 'react';
 import {
   X, Users, UserPlus, Trophy, RefreshCw, CheckCircle2,
-  Loader2, Copy, Check, Key, Shield, LogIn, LogOut,
+  Loader2, Copy, Check, Key, Shield, LogOut,
   ChevronLeft, Eye, Flame, Trash2, AlertTriangle,
 } from 'lucide-react';
-import { useSquad } from '../hooks/useSquad';
 import { useAuth } from '../hooks/useAuth';
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function timeAgo(iso) {
   const m = Math.round((Date.now() - new Date(iso)) / 60000);
-  if (m < 1) return 'just now';
-  if (m < 60) return `${m}m ago`;
+  if (m < 1)    return 'just now';
+  if (m < 60)   return `${m}m ago`;
   if (m < 1440) return `${Math.round(m / 60)}h ago`;
   return `${Math.round(m / 1440)}d ago`;
 }
@@ -37,25 +36,25 @@ function fallbackCopy(text) {
 // ── FriendHabitViewer ─────────────────────────────────────────────────────────
 function FriendHabitViewer({ friend, onBack }) {
   const today = new Date();
-  const [year, setYear]   = useState(today.getFullYear());
+  const [year,  setYear]  = useState(today.getFullYear());
   const [month, setMonth] = useState(today.getMonth());
 
   const habits = friend.habits || [];
   const logs   = friend.logs   || [];
 
   const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const days    = Array.from({ length: daysInMonth }, (_, i) => i + 1);
-  const firstDow = new Date(year, month, 1).getDay();
+  const days        = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+  const firstDow    = new Date(year, month, 1).getDay();
   const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const DOW    = ['Su','Mo','Tu','We','Th','Fr','Sa'];
 
   const isCompleted = (habitId, day) => {
-    const date = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
-    return logs.some(l => l.habitId === habitId && l.date === date && l.completed);
+    const date = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    return logs.some((l) => l.habitId === habitId && l.date === date && l.completed);
   };
 
-  const prevMonth = () => { if (month===0){setMonth(11);setYear(y=>y-1);}else setMonth(m=>m-1); };
-  const nextMonth = () => { if (month===11){setMonth(0);setYear(y=>y+1);}else setMonth(m=>m+1); };
+  const prevMonth = () => { if (month === 0) { setMonth(11); setYear((y) => y - 1); } else setMonth((m) => m - 1); };
+  const nextMonth = () => { if (month === 11) { setMonth(0); setYear((y) => y + 1); } else setMonth((m) => m + 1); };
 
   const pct = friend.today_total > 0 ? Math.round((friend.today_done / friend.today_total) * 100) : 0;
 
@@ -66,7 +65,7 @@ function FriendHabitViewer({ friend, onBack }) {
           <ChevronLeft size={18} />
         </button>
         <div className="w-8 h-8 rounded-xl bg-accent/15 flex items-center justify-center font-syne font-bold text-sm text-accent">
-          {friend.username.slice(0,2).toUpperCase()}
+          {friend.username.slice(0, 2).toUpperCase()}
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-white">@{friend.username}</p>
@@ -90,8 +89,8 @@ function FriendHabitViewer({ friend, onBack }) {
           <div className="text-center py-12 text-text-faint text-sm">No habits to show.</div>
         ) : (
           <div className="space-y-3">
-            {habits.map(habit => {
-              const completedCount = days.filter(d => isCompleted(habit.id, d)).length;
+            {habits.map((habit) => {
+              const completedCount = days.filter((d) => isCompleted(habit.id, d)).length;
               const habitPct = days.length > 0 ? Math.round((completedCount / days.length) * 100) : 0;
               return (
                 <div key={habit.id} className="bg-bg-muted border border-bg-border rounded-xl p-3">
@@ -103,19 +102,20 @@ function FriendHabitViewer({ friend, onBack }) {
                     <span className="text-xs font-syne font-bold text-text-muted">{habitPct}%</span>
                   </div>
                   <div className="grid grid-cols-7 gap-px mb-1">
-                    {DOW.map(d => <div key={d} className="text-center text-[8px] text-text-faint py-0.5">{d}</div>)}
+                    {DOW.map((d) => <div key={d} className="text-center text-[8px] text-text-faint py-0.5">{d}</div>)}
                   </div>
                   <div className="grid grid-cols-7 gap-px">
                     {Array.from({ length: firstDow }).map((_, i) => <div key={`b${i}`} />)}
-                    {days.map(day => {
-                      const done = isCompleted(habit.id, day);
-                      const isToday = today.getFullYear()===year && today.getMonth()===month && today.getDate()===day;
+                    {days.map((day) => {
+                      const done    = isCompleted(habit.id, day);
+                      const isToday = today.getFullYear() === year && today.getMonth() === month && today.getDate() === day;
                       return (
                         <div key={day}
                           className={['aspect-square rounded flex items-center justify-center text-[9px] font-medium',
                             done ? 'text-white' : isToday ? 'border border-accent/40 text-accent' : 'text-text-faint',
                           ].join(' ')}
-                          style={done ? { background: habit.color || '#7c5cfc' } : {}}>
+                          style={done ? { background: habit.color || '#7c5cfc' } : {}}
+                        >
                           {day}
                         </div>
                       );
@@ -193,7 +193,7 @@ function FriendCard({ friend, onRemove, onView }) {
       <div className="flex items-start justify-between gap-2 mb-3">
         <div className="flex items-center gap-2.5">
           <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-syne font-bold text-sm ${allDone ? 'bg-green-500/15 text-green-400' : 'bg-accent/15 text-accent'}`}>
-            {friend.username.slice(0,2).toUpperCase()}
+            {friend.username.slice(0, 2).toUpperCase()}
           </div>
           <div>
             <p className="text-sm font-semibold text-white">@{friend.username}</p>
@@ -227,7 +227,7 @@ function FriendCard({ friend, onRemove, onView }) {
       </div>
 
       <div className="flex flex-wrap gap-1.5">
-        {(friend.habits || []).slice(0,6).map(h => (
+        {(friend.habits || []).slice(0, 6).map((h) => (
           <span key={h.id} className="text-[11px] flex items-center gap-1 px-2 py-0.5 rounded-full bg-bg-card border border-bg-border text-text-muted">
             {h.emoji} {h.name}
           </span>
@@ -248,7 +248,7 @@ function FriendCard({ friend, onRemove, onView }) {
 // ── RegisterView ──────────────────────────────────────────────────────────────
 function RegisterView({ onRegister, error, setError, session, signInWithGoogle, signOut }) {
   const [username, setUsername] = useState('');
-  const [busy, setBusy] = useState(false);
+  const [busy,     setBusy]     = useState(false);
 
   const submit = async () => {
     if (username.length < 3) return;
@@ -264,16 +264,14 @@ function RegisterView({ onRegister, error, setError, session, signInWithGoogle, 
       <div className="text-center">
         <div className="text-4xl mb-3">🫂</div>
         <h3 className="font-syne font-bold text-white text-base mb-1">Pick your InnerCircle username</h3>
-        <p className="text-sm text-text-muted">
-          Friends need your username + a code to add you.
-        </p>
+        <p className="text-sm text-text-muted">Friends need your username + a code to add you.</p>
       </div>
 
       <div className="flex items-center gap-2 bg-bg-muted border border-bg-border rounded-xl px-3 py-2.5 focus-within:border-accent transition-colors">
         <span className="text-text-faint text-sm">@</span>
         <input autoFocus type="text" value={username}
-          onChange={e => { setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g,'')); setError(''); }}
-          onKeyDown={e => e.key==='Enter' && submit()}
+          onChange={(e) => { setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '')); setError(''); }}
+          onKeyDown={(e) => e.key === 'Enter' && submit()}
           placeholder="your_username" maxLength={20}
           className="flex-1 bg-transparent text-sm text-white placeholder-text-faint outline-none" />
         <span className="text-[10px] text-text-faint">{username.length}/20</span>
@@ -294,10 +292,10 @@ function RegisterView({ onRegister, error, setError, session, signInWithGoogle, 
 
 // ── InviteCodePanel ───────────────────────────────────────────────────────────
 function InviteCodePanel({ generateInviteCode, myUser }) {
-  const [code, setCode]         = useState(null);
-  const [generating, setGen]    = useState(false);
-  const [copied, setCopied]     = useState(false);
-  const [copyFailed, setFailed] = useState(false);
+  const [code,       setCode]    = useState(null);
+  const [generating, setGen]     = useState(false);
+  const [copied,     setCopied]  = useState(false);
+  const [copyFailed, setFailed]  = useState(false);
 
   const handleGenerate = async () => {
     setGen(true);
@@ -330,11 +328,11 @@ function InviteCodePanel({ generateInviteCode, myUser }) {
           <div className="flex gap-2">
             <button onClick={handleCopy}
               className={`flex-1 flex items-center justify-center gap-2 py-2 rounded-xl text-sm font-syne font-bold transition-all ${
-                copied ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                copied    ? 'bg-green-500/20 text-green-400 border border-green-500/30'
                 : copyFailed ? 'bg-red-500/20 text-red-400 border border-red-500/30'
                 : 'bg-accent text-white hover:bg-accent-hover'
               }`}>
-              {copied ? <Check size={14}/> : <Copy size={14}/>}
+              {copied ? <Check size={14} /> : <Copy size={14} />}
               {copied ? 'Copied!' : copyFailed ? 'Failed — select manually' : 'Copy to Share'}
             </button>
             <button onClick={handleGenerate} disabled={generating}
@@ -351,7 +349,7 @@ function InviteCodePanel({ generateInviteCode, myUser }) {
       ) : (
         <button onClick={handleGenerate} disabled={generating}
           className="w-full flex items-center justify-center gap-2 py-3 bg-accent text-white rounded-xl text-sm font-syne font-bold hover:bg-accent-hover transition-colors">
-          {generating ? <Loader2 size={15} className="animate-spin"/> : <Key size={15}/>}
+          {generating ? <Loader2 size={15} className="animate-spin" /> : <Key size={15} />}
           {generating ? 'Generating…' : 'Generate Invite Code'}
         </button>
       )}
@@ -366,9 +364,9 @@ function InviteCodePanel({ generateInviteCode, myUser }) {
 // ── AddFriendView ─────────────────────────────────────────────────────────────
 function AddFriendView({ addFriendWithCode, error, setError }) {
   const [username, setUsername] = useState('');
-  const [code, setCode]         = useState('');
-  const [busy, setBusy]         = useState(false);
-  const [success, setSuccess]   = useState(false);
+  const [code,     setCode]     = useState('');
+  const [busy,     setBusy]     = useState(false);
+  const [success,  setSuccess]  = useState(false);
 
   const handleAdd = async () => {
     setBusy(true);
@@ -389,7 +387,7 @@ function AddFriendView({ addFriendWithCode, error, setError }) {
       </div>
 
       {error   && <p className="text-xs text-red-400 bg-red-500/10 rounded-lg px-3 py-2">{error}</p>}
-      {success && <p className="text-xs text-green-400 bg-green-500/10 rounded-lg px-3 py-2 flex items-center gap-2"><CheckCircle2 size={13}/> Added to your InnerCircle!</p>}
+      {success && <p className="text-xs text-green-400 bg-green-500/10 rounded-lg px-3 py-2 flex items-center gap-2"><CheckCircle2 size={13} /> Added to your InnerCircle!</p>}
 
       <div className="flex flex-col gap-3">
         <div>
@@ -397,7 +395,7 @@ function AddFriendView({ addFriendWithCode, error, setError }) {
           <div className="flex items-center gap-2 bg-bg-muted border border-bg-border rounded-xl px-3 py-2.5 focus-within:border-accent transition-colors">
             <span className="text-text-faint text-sm">@</span>
             <input type="text" value={username}
-              onChange={e => { setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g,'')); setError(''); }}
+              onChange={(e) => { setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, '')); setError(''); }}
               placeholder="their_username" maxLength={20}
               className="flex-1 bg-transparent text-sm text-white placeholder-text-faint outline-none" />
           </div>
@@ -405,7 +403,7 @@ function AddFriendView({ addFriendWithCode, error, setError }) {
         <div>
           <label className="text-[11px] text-text-faint uppercase tracking-widest mb-1.5 block">Their Invite Code</label>
           <input type="text" value={code}
-            onChange={e => { setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g,'')); setError(''); }}
+            onChange={(e) => { setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, '')); setError(''); }}
             placeholder="HAWK-4921" maxLength={9}
             className="w-full bg-bg-muted border border-bg-border rounded-xl px-3 py-2.5 text-sm text-white placeholder-text-faint outline-none focus:border-accent transition-colors font-mono tracking-widest" />
         </div>
@@ -415,7 +413,7 @@ function AddFriendView({ addFriendWithCode, error, setError }) {
         className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-syne font-bold transition-all ${
           ready && !busy ? 'bg-accent text-white hover:bg-accent-hover' : 'bg-bg-border text-text-faint cursor-not-allowed'
         }`}>
-        {busy ? <Loader2 size={15} className="animate-spin"/> : <UserPlus size={15}/>}
+        {busy ? <Loader2 size={15} className="animate-spin" /> : <UserPlus size={15} />}
         {busy ? 'Adding…' : 'Add to InnerCircle'}
       </button>
     </div>
@@ -425,7 +423,7 @@ function AddFriendView({ addFriendWithCode, error, setError }) {
 // ── AccountView ───────────────────────────────────────────────────────────────
 function AccountView({ session, signInWithGoogle, signOut, myUser, deleteAccount }) {
   const [confirming, setConfirming] = useState(false);
-  const [deleting, setDeleting]     = useState(false);
+  const [deleting,   setDeleting]   = useState(false);
 
   const handleDelete = async () => {
     setDeleting(true);
@@ -436,17 +434,14 @@ function AccountView({ session, signInWithGoogle, signOut, myUser, deleteAccount
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Google auth panel */}
       <GoogleSignInButton session={session} signInWithGoogle={signInWithGoogle} signOut={signOut} />
 
-      {/* Username */}
       <div className="bg-bg-muted border border-bg-border rounded-xl p-3">
         <p className="text-[10px] text-text-faint uppercase tracking-widest mb-1">Your InnerCircle Username</p>
         <p className="text-white font-syne font-bold text-lg select-all">@{myUser?.username}</p>
         <p className="text-[10px] text-text-faint mt-1">This is how friends find and add you.</p>
       </div>
 
-      {/* How sync works */}
       {!session && (
         <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 flex gap-3">
           <AlertTriangle size={14} className="text-amber-400 flex-shrink-0 mt-0.5" />
@@ -457,7 +452,6 @@ function AccountView({ session, signInWithGoogle, signOut, myUser, deleteAccount
         </div>
       )}
 
-      {/* Delete account */}
       {!confirming ? (
         <button onClick={() => setConfirming(true)}
           className="w-full flex items-center justify-center gap-2 py-2 rounded-xl text-xs text-red-400 border border-red-500/20 hover:bg-red-500/10 transition-colors">
@@ -485,18 +479,32 @@ function AccountView({ session, signInWithGoogle, signOut, myUser, deleteAccount
 }
 
 // ── Main ──────────────────────────────────────────────────────────────────────
-export default function SquadSync({ habits, logs, authUser, onClose }) {
+/**
+ * SquadSync no longer calls useSquad internally.
+ * All squad state + actions arrive as props from App, which owns the single
+ * useSquad instance. This ensures:
+ *   • No double Supabase calls
+ *   • Auth switching is handled at the App level
+ *   • SquadQuickStats on the main page always has fresh data
+ */
+export default function SquadSync({
+  // squad state
+  myUser, friends, loading, error, setError,
+  // squad actions
+  register, generateInviteCode, addFriendWithCode, removeFriend, deleteAccount, refetch,
+  // context
+  habits, logs, authUser, session: sessionProp,
+  // pre-open a specific friend's tracker (from quick-stats chip)
+  initialFriend = null,
+  onClose,
+}) {
+  // useAuth is kept here for the Google sign-in UI — it's lightweight (no DB fetch)
   const { session, signInWithGoogle, signOut } = useAuth();
 
-  // SquadSync owns the single useSquad instance
-  const {
-    myUser, friends, loading, error, setError,
-    register, generateInviteCode, addFriendWithCode, removeFriend, deleteAccount, refetch,
-  } = useSquad(habits, logs, authUser);
-
-  const [tab,        setTab]    = useState('squad');
-  const [refreshing, setRefresh]= useState(false);
-  const [viewing,    setViewing]= useState(null);
+  const [tab,        setTab]     = useState('squad');
+  const [refreshing, setRefresh] = useState(false);
+  // If a friend was passed from the main page, open their view immediately
+  const [viewing,    setViewing] = useState(initialFriend);
 
   const handleRefresh = async () => {
     setRefresh(true);
@@ -505,10 +513,10 @@ export default function SquadSync({ habits, logs, authUser, onClose }) {
   };
 
   const tabs = myUser ? [
-    { id: 'squad',   label: 'My InnerCircle'  },
-    { id: 'add',     label: 'Add Friend'  },
-    { id: 'invite',  label: 'Invite Code' },
-    { id: 'account', label: 'Account'     },
+    { id: 'squad',   label: 'My InnerCircle' },
+    { id: 'add',     label: 'Add Friend'     },
+    { id: 'invite',  label: 'Invite Code'    },
+    { id: 'account', label: 'Account'        },
   ] : [];
 
   return (
@@ -546,7 +554,7 @@ export default function SquadSync({ habits, logs, authUser, onClose }) {
 
             {myUser && (
               <div className="flex border-b border-bg-border flex-shrink-0">
-                {tabs.map(t => (
+                {tabs.map((t) => (
                   <button key={t.id} onClick={() => { setTab(t.id); setError(''); }}
                     className={`flex-1 py-2.5 text-[11px] font-medium transition-colors ${
                       tab === t.id ? 'text-accent border-b-2 border-accent' : 'text-text-muted hover:text-white'
@@ -591,9 +599,11 @@ export default function SquadSync({ habits, logs, authUser, onClose }) {
                     </button>
                   </div>
                 </div>
-              ) : friends.map(f => (
-                <FriendCard key={f.id} friend={f} onRemove={removeFriend} onView={setViewing} />
-              ))}
+              ) : (
+                friends.map((f) => (
+                  <FriendCard key={f.id} friend={f} onRemove={removeFriend} onView={setViewing} />
+                ))
+              )}
             </div>
           ) : tab === 'add' ? (
             <div className="p-4">

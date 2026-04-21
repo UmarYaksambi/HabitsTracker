@@ -1,27 +1,26 @@
 /**
- * useSquad.js — rewritten
+ * useSquad — habit accountability hook
  *
- * Key fixes:
- * 1. Single source of truth: useSquad is called ONCE (in SquadSync), NOT in App.
- *    App gets `friends` via a lightweight `useSquadFriends` hook that reads from
- *    a shared Zustand store instead of hitting Supabase again.
- * 2. Google auth linking is handled correctly: when a user signs in with Google
- *    we upsert by auth_id so the same squad record is always found.
- * 3. pushMyProfile is debounced and only fires when a squad user exists.
- * 4. Register auto-links the Google auth_id at creation time.
+ * Called ONCE from App.jsx. SquadSync receives its return value as props.
+ *
+ * Fixes vs previous version:
+ * 1. Removed `create` phantom-imported from 'react' (doesn't exist there).
+ * 2. Auth switching: state is reset synchronously before async resolve so
+ *    stale data from the previous account never flashes.
+ * 3. Profile push is guarded — no push while user is null (account switch).
  */
 
-import { useState, useEffect, useCallback, useRef, create } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../db/supabase';
 import { toDateString } from '../utils/date';
 import { calculateStreak } from '../domain/streaks';
 import { getMonthlyCompletion, getTotalCheckIns } from '../domain/stats';
 
-// ─── localStorage key ────────────────────────────────────────────────────────
-const LOCAL_USER_KEY = 'squad_my_user_id';
-const getStoredUserId = () => localStorage.getItem(LOCAL_USER_KEY);
-const storeUserId     = (id) => localStorage.setItem(LOCAL_USER_KEY, id);
-const clearStoredUserId = () => localStorage.removeItem(LOCAL_USER_KEY);
+// ─── localStorage helpers ────────────────────────────────────────────────────
+const LOCAL_USER_KEY    = 'squad_my_user_id';
+const getStoredUserId   = ()   => localStorage.getItem(LOCAL_USER_KEY);
+const storeUserId       = (id) => localStorage.setItem(LOCAL_USER_KEY, id);
+const clearStoredUserId = ()   => localStorage.removeItem(LOCAL_USER_KEY);
 
 // ─── Invite code generator ───────────────────────────────────────────────────
 function generateCode() {
@@ -31,11 +30,11 @@ function generateCode() {
   return `${word}-${num}`;
 }
 
-// ─── Build the profile payload ───────────────────────────────────────────────
+// ─── Profile payload builder ─────────────────────────────────────────────────
 function buildProfilePayload(habits, logs) {
-  const today    = toDateString(new Date());
-  const now      = new Date();
-  const todayDone      = logs.filter(l => l.date === today && l.completed).length;
+  const today          = toDateString(new Date());
+  const now            = new Date();
+  const todayDone      = logs.filter((l) => l.date === today && l.completed).length;
   const totalCheckins  = getTotalCheckIns(logs);
   const monthlyPct     = getMonthlyCompletion(habits, logs, now.getFullYear(), now.getMonth());
   const topStreak      = habits.reduce((best, h) => {
@@ -44,21 +43,19 @@ function buildProfilePayload(habits, logs) {
   }, 0);
 
   return {
-    habits:          habits.map(h => ({ id: h.id, name: h.name, emoji: h.emoji, color: h.color })),
-    logs:            logs.map(l => ({ habitId: l.habitId, date: l.date, completed: l.completed })),
-    today_done:      todayDone,
-    today_total:     habits.length,
-    monthly_pct:     monthlyPct,
-    top_streak:      topStreak,
-    total_checkins:  totalCheckins,
-    updated_at:      new Date().toISOString(),
+    habits:         habits.map((h) => ({ id: h.id, name: h.name, emoji: h.emoji, color: h.color })),
+    logs:           logs.map((l) => ({ habitId: l.habitId, date: l.date, completed: l.completed })),
+    today_done:     todayDone,
+    today_total:    habits.length,
+    monthly_pct:    monthlyPct,
+    top_streak:     topStreak,
+    total_checkins: totalCheckins,
+    updated_at:     new Date().toISOString(),
   };
 }
 
 // ─── Resolve squad user from auth or localStorage ────────────────────────────
-// Returns { id, username } or null.
 async function resolveSquadUser(authUser) {
-  // 1. Google user → look up by auth_id first
   if (authUser) {
     const { data: byAuth } = await supabase
       .from('squad_users')
@@ -66,12 +63,8 @@ async function resolveSquadUser(authUser) {
       .eq('auth_id', authUser.id)
       .maybeSingle();
 
-    if (byAuth) {
-      storeUserId(byAuth.id);
-      return byAuth;
-    }
+    if (byAuth) { storeUserId(byAuth.id); return byAuth; }
 
-    // 2. Google user but no squad record by auth_id yet — check localStorage
     const localId = getStoredUserId();
     if (localId) {
       const { data: localUser } = await supabase
@@ -81,7 +74,7 @@ async function resolveSquadUser(authUser) {
         .maybeSingle();
 
       if (localUser) {
-        // Link existing local record to this Google account
+        // Link existing anonymous record to this Google account
         await supabase
           .from('squad_users')
           .update({ auth_id: authUser.id })
@@ -89,11 +82,9 @@ async function resolveSquadUser(authUser) {
         return localUser;
       }
     }
-    // Google user with no squad record at all — needs registration
     return null;
   }
 
-  // 3. Not logged in — try localStorage
   const localId = getStoredUserId();
   if (!localId) return null;
 
@@ -113,24 +104,32 @@ export function useSquad(habits, logs, authUser) {
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState('');
 
-  const pollRef    = useRef(null);
-  const pushTimer  = useRef(null);
-  const myUserRef  = useRef(null);
+  const pollRef   = useRef(null);
+  const pushTimer = useRef(null);
+  const myUserRef = useRef(null);
   myUserRef.current = myUser;
 
-  // ── Boot ─────────────────────────────────────────────────────────────────
+  // ── Boot / re-boot on auth change ─────────────────────────────────────────
+  // Reset state SYNCHRONOUSLY first so stale data from the previous account
+  // never leaks through before the async resolve completes.
   useEffect(() => {
     let cancelled = false;
+
+    setMyUser(null);      // immediate reset — no stale flash
+    setFriends([]);
+    setLoading(true);
+    setError('');
+
     (async () => {
-      setLoading(true);
       const resolved = await resolveSquadUser(authUser);
       if (!cancelled) {
         setMyUser(resolved);
         setLoading(false);
       }
     })();
+
     return () => { cancelled = true; };
-  }, [authUser?.id]); // re-run when Google user changes
+  }, [authUser?.id]); // re-run whenever the Google account changes
 
   // ── Polling ───────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -138,11 +137,11 @@ export function useSquad(habits, logs, authUser) {
     fetchFriends();
     pollRef.current = setInterval(fetchFriends, 30_000);
     return () => clearInterval(pollRef.current);
-  }, [myUser?.id]);
+  }, [myUser?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Push profile (debounced 2 s) ──────────────────────────────────────────
+  // ── Push profile (debounced 2 s, skipped if no user) ─────────────────────
   useEffect(() => {
-    if (!myUser) return;
+    if (!myUser) return; // guard: no push during account switch
     clearTimeout(pushTimer.current);
     pushTimer.current = setTimeout(async () => {
       await supabase
@@ -165,7 +164,7 @@ export function useSquad(habits, logs, authUser) {
 
     if (!links?.length) { setFriends([]); return; }
 
-    const ids = links.map(l => l.friend_id);
+    const ids = links.map((l) => l.friend_id);
     const { data: users } = await supabase
       .from('squad_users')
       .select('id, username, habits, logs, today_done, today_total, monthly_pct, top_streak, total_checkins, updated_at')
@@ -190,8 +189,8 @@ export function useSquad(habits, logs, authUser) {
     const { data, error: err } = await supabase
       .from('squad_users')
       .insert({
-        username:    clean,
-        auth_id:     authUser?.id ?? null, // link Google ID at creation if available
+        username: clean,
+        auth_id:  authUser?.id ?? null,
         ...buildProfilePayload(habits, logs),
       })
       .select('id, username')
@@ -235,9 +234,9 @@ export function useSquad(habits, logs, authUser) {
       .eq('username', cleanUser)
       .maybeSingle();
 
-    if (!target)                  { setError('No user found with that username.'); return false; }
-    if (target.id === myUser.id)  { setError("You can't add yourself."); return false; }
-    if (friends.some(f => f.id === target.id)) { setError('Already in your squad.'); return false; }
+    if (!target)                   { setError('No user found with that username.'); return false; }
+    if (target.id === myUser.id)   { setError("You can't add yourself."); return false; }
+    if (friends.some((f) => f.id === target.id)) { setError('Already in your squad.'); return false; }
 
     const { data: codeRow } = await supabase
       .from('squad_invite_codes')
@@ -246,9 +245,9 @@ export function useSquad(habits, logs, authUser) {
       .eq('code', cleanCode)
       .maybeSingle();
 
-    if (!codeRow)                                   { setError('Invalid code.'); return false; }
-    if (codeRow.used)                               { setError('Code already used.'); return false; }
-    if (new Date(codeRow.expires_at) < new Date())  { setError('Code expired. Ask for a new one.'); return false; }
+    if (!codeRow)                                    { setError('Invalid code.'); return false; }
+    if (codeRow.used)                                { setError('Code already used.'); return false; }
+    if (new Date(codeRow.expires_at) < new Date())   { setError('Code expired. Ask for a new one.'); return false; }
 
     await supabase.from('squad_invite_codes').update({ used: true }).eq('id', codeRow.id);
     const { error: insertErr } = await supabase
@@ -265,7 +264,7 @@ export function useSquad(habits, logs, authUser) {
     if (!myUser) return;
     await supabase.from('squad_friends').delete()
       .eq('owner_id', myUser.id).eq('friend_id', friendId);
-    setFriends(prev => prev.filter(f => f.id !== friendId));
+    setFriends((prev) => prev.filter((f) => f.id !== friendId));
   }, [myUser?.id]);
 
   // ── Delete account ────────────────────────────────────────────────────────

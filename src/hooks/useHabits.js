@@ -43,6 +43,7 @@ export function useHabits() {
     deleteHabit: store.deleteHabit,
     exportData: store.exportData,
     importData: store.importData,
+    restoreFromCloud: store.restoreFromCloud,
     getStreak,
     getMonthStats,
     getTodayCount,

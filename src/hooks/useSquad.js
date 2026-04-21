@@ -3,11 +3,14 @@
  *
  * Called ONCE from App.jsx. SquadSync receives its return value as props.
  *
- * Fixes vs previous version:
- * 1. Removed `create` phantom-imported from 'react' (doesn't exist there).
- * 2. Auth switching: state is reset synchronously before async resolve so
- *    stale data from the previous account never flashes.
- * 3. Profile push is guarded — no push while user is null (account switch).
+ * Fixes:
+ * 1. Cloud restore: on sign-in, if local data is empty / all-default, pull from
+ *    squad_users.habits + logs and restore into IndexedDB via onRestoreFromCloud.
+ * 2. Push-timer race: the setTimeout closure now reads myUserRef.current instead
+ *    of the stale captured `myUser`, preventing pushes to a previous account.
+ * 3. Auth switch: push timer is cleared synchronously before the async resolve,
+ *    so no stale write can fire between account changes.
+ * 4. fetchFriends: already uses myUserRef.current (no regression).
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -32,19 +35,19 @@ function generateCode() {
 
 // ─── Profile payload builder ─────────────────────────────────────────────────
 function buildProfilePayload(habits, logs) {
-  const today          = toDateString(new Date());
-  const now            = new Date();
-  const todayDone      = logs.filter((l) => l.date === today && l.completed).length;
-  const totalCheckins  = getTotalCheckIns(logs);
-  const monthlyPct     = getMonthlyCompletion(habits, logs, now.getFullYear(), now.getMonth());
-  const topStreak      = habits.reduce((best, h) => {
+  const today         = toDateString(new Date());
+  const now           = new Date();
+  const todayDone     = logs.filter((l) => l.date === today && l.completed).length;
+  const totalCheckins = getTotalCheckIns(logs);
+  const monthlyPct    = getMonthlyCompletion(habits, logs, now.getFullYear(), now.getMonth());
+  const topStreak     = habits.reduce((best, h) => {
     const s = calculateStreak(h.id, logs);
     return s > best ? s : best;
   }, 0);
 
   return {
     habits:         habits.map((h) => ({ id: h.id, name: h.name, emoji: h.emoji, color: h.color })),
-    logs:           logs.map((l) => ({ habitId: l.habitId, date: l.date, completed: l.completed })),
+    logs:           logs.map((l)   => ({ habitId: l.habitId, date: l.date, completed: l.completed })),
     today_done:     todayDone,
     today_total:    habits.length,
     monthly_pct:    monthlyPct,
@@ -57,6 +60,7 @@ function buildProfilePayload(habits, logs) {
 // ─── Resolve squad user from auth or localStorage ────────────────────────────
 async function resolveSquadUser(authUser) {
   if (authUser) {
+    // 1. Try to find by linked Google account
     const { data: byAuth } = await supabase
       .from('squad_users')
       .select('id, username')
@@ -65,6 +69,7 @@ async function resolveSquadUser(authUser) {
 
     if (byAuth) { storeUserId(byAuth.id); return byAuth; }
 
+    // 2. Try to link existing anonymous record to this Google account
     const localId = getStoredUserId();
     if (localId) {
       const { data: localUser } = await supabase
@@ -74,7 +79,6 @@ async function resolveSquadUser(authUser) {
         .maybeSingle();
 
       if (localUser) {
-        // Link existing anonymous record to this Google account
         await supabase
           .from('squad_users')
           .update({ auth_id: authUser.id })
@@ -85,6 +89,7 @@ async function resolveSquadUser(authUser) {
     return null;
   }
 
+  // 3. No Google auth — fall back to localStorage
   const localId = getStoredUserId();
   if (!localId) return null;
 
@@ -98,38 +103,60 @@ async function resolveSquadUser(authUser) {
 }
 
 // ─── Main hook ───────────────────────────────────────────────────────────────
-export function useSquad(habits, logs, authUser) {
+/**
+ * @param {object[]}  habits
+ * @param {object[]}  logs
+ * @param {object|null} authUser  — Supabase auth user (or null)
+ * @param {Function}  onRestoreFromCloud  — (cloudHabits, cloudLogs) => Promise<bool>
+ */
+export function useSquad(habits, logs, authUser, onRestoreFromCloud) {
   const [myUser,  setMyUser]  = useState(null);
   const [friends, setFriends] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState('');
 
-  const pollRef   = useRef(null);
-  const pushTimer = useRef(null);
-  const myUserRef = useRef(null);
+  const pollRef    = useRef(null);
+  const pushTimer  = useRef(null);
+  const myUserRef  = useRef(null);
   myUserRef.current = myUser;
 
   // ── Boot / re-boot on auth change ─────────────────────────────────────────
-  // Reset state SYNCHRONOUSLY first so stale data from the previous account
-  // never leaks through before the async resolve completes.
   useEffect(() => {
     let cancelled = false;
 
-    setMyUser(null);      // immediate reset — no stale flash
+    // ① Clear any pending profile push immediately — avoids writing stale data
+    //    from the previous session to the new account.
+    clearTimeout(pushTimer.current);
+
+    setMyUser(null);
     setFriends([]);
     setLoading(true);
     setError('');
 
     (async () => {
       const resolved = await resolveSquadUser(authUser);
-      if (!cancelled) {
-        setMyUser(resolved);
-        setLoading(false);
+      if (cancelled) return;
+
+      setMyUser(resolved);
+      setLoading(false);
+
+      // ② On sign-in: if cloud has habit data and local looks like a fresh device,
+      //    restore the user's full history into IndexedDB.
+      if (resolved && typeof onRestoreFromCloud === 'function') {
+        const { data: profile } = await supabase
+          .from('squad_users')
+          .select('habits, logs')
+          .eq('id', resolved.id)
+          .maybeSingle();
+
+        if (!cancelled && profile?.habits?.length > 0) {
+          await onRestoreFromCloud(profile.habits, profile.logs ?? []);
+        }
       }
     })();
 
     return () => { cancelled = true; };
-  }, [authUser?.id]); // re-run whenever the Google account changes
+  }, [authUser?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Polling ───────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -139,16 +166,22 @@ export function useSquad(habits, logs, authUser) {
     return () => clearInterval(pollRef.current);
   }, [myUser?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Push profile (debounced 2 s, skipped if no user) ─────────────────────
+  // ── Push profile (debounced 2 s) ─────────────────────────────────────────
   useEffect(() => {
-    if (!myUser) return; // guard: no push during account switch
+    if (!myUser) return;
     clearTimeout(pushTimer.current);
     pushTimer.current = setTimeout(async () => {
+      // Read from ref so we always use the account that is current at fire-time,
+      // not the one that was current when the effect was scheduled.
+      const user = myUserRef.current;
+      if (!user) return;
+
       await supabase
         .from('squad_users')
         .update(buildProfilePayload(habits, logs))
-        .eq('id', myUser.id);
+        .eq('id', user.id);
     }, 2000);
+
     return () => clearTimeout(pushTimer.current);
   }, [habits, logs, myUser?.id]);
 
@@ -236,7 +269,7 @@ export function useSquad(habits, logs, authUser) {
 
     if (!target)                   { setError('No user found with that username.'); return false; }
     if (target.id === myUser.id)   { setError("You can't add yourself."); return false; }
-    if (friends.some((f) => f.id === target.id)) { setError('Already in your squad.'); return false; }
+    if (friends.some((f) => f.id === target.id)) { setError('Already in your InnerCircle.'); return false; }
 
     const { data: codeRow } = await supabase
       .from('squad_invite_codes')
@@ -245,9 +278,9 @@ export function useSquad(habits, logs, authUser) {
       .eq('code', cleanCode)
       .maybeSingle();
 
-    if (!codeRow)                                    { setError('Invalid code.'); return false; }
-    if (codeRow.used)                                { setError('Code already used.'); return false; }
-    if (new Date(codeRow.expires_at) < new Date())   { setError('Code expired. Ask for a new one.'); return false; }
+    if (!codeRow)                                  { setError('Invalid code.'); return false; }
+    if (codeRow.used)                              { setError('Code already used.'); return false; }
+    if (new Date(codeRow.expires_at) < new Date()) { setError('Code expired. Ask for a new one.'); return false; }
 
     await supabase.from('squad_invite_codes').update({ used: true }).eq('id', codeRow.id);
     const { error: insertErr } = await supabase

@@ -10,6 +10,17 @@ function timeAgo(iso) {
   return `${Math.round(m / 1440)}d ago`;
 }
 
+// ── Habit Twins detection (Easter Egg 6) ──────────────────────────────────────
+// Count how many habit names are shared (case-insensitive) between my habits
+// and a friend's habits. 3+ = twins. Intentionally quiet — no fanfare.
+function countSharedHabits(myHabits, friendHabits) {
+  if (!myHabits?.length || !friendHabits?.length) return 0;
+  const friendNames = new Set(
+    (friendHabits).map((h) => h.name.toLowerCase().trim())
+  );
+  return myHabits.filter((h) => friendNames.has(h.name.toLowerCase().trim())).length;
+}
+
 function FriendChip({ friend, myHabits, myLogs, onView }) {
   const pct     = friend.today_total > 0
     ? Math.round((friend.today_done / friend.today_total) * 100)
@@ -23,11 +34,15 @@ function FriendChip({ friend, myHabits, myLogs, onView }) {
     friend.logs   || []
   );
 
+  // Habit Twins: 3+ identical habit names → quiet badge
+  const sharedCount  = countSharedHabits(myHabits, friend.habits);
+  const isHabitTwin  = sharedCount >= 3;
+
   return (
     <button
       onClick={() => onView(friend)}
       className={[
-        'group flex-shrink-0 snap-start w-44 rounded-2xl border p-3 text-left',
+        'group relative flex-shrink-0 snap-start w-44 rounded-2xl border p-3 text-left',
         'transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]',
         allDone
           ? 'bg-green-500/5 border-green-500/30 hover:border-green-400/60'
@@ -94,6 +109,12 @@ function FriendChip({ friend, myHabits, myLogs, onView }) {
         )}
         {allDone && (
           <span className="text-[10px]">🎉</span>
+        )}
+        {/* Quiet "Habit Twins" badge — no fanfare, just a detail to discover */}
+        {isHabitTwin && (
+          <span className="text-[10px] text-text-faint" title={`You share ${sharedCount} habits`}>
+            👯
+          </span>
         )}
         <span className="text-[10px] text-text-faint ml-auto">
           {friend.today_done}/{friend.today_total}

@@ -1,6 +1,20 @@
-import { useState, memo, useMemo } from 'react';
+import { useState, memo, useMemo, useRef, useCallback } from 'react';
 import { Trash2, ChevronDown, ChevronUp } from 'lucide-react';
 import { buildMonthDays, isWeekend, toDateString } from '../utils/date';
+
+// ── Easter Egg 5 — Triple-click streak messages (shared rotation with HabitRow) ──
+const STREAK_MSGS = [
+  (n) => `${n} mornings you chose discipline`,
+  (n) => `${n} days of showing up. Most won't.`,
+  (n) => `${n} in a row. You're building something real.`,
+  (n) => `${n} days of compound interest on yourself`,
+  (n) => `${n} cold showers you didn't skip`,
+  (n) => `${n} days your future self is grateful for`,
+  (n) => `${n} sunrises. ${n} wins.`,
+  (n) => `That's ${n} times discipline beat comfort`,
+];
+
+let globalMsgIdx = 0; // local module counter; desktop HabitRow has its own
 
 function MiniCalendar({ habit, logs, year, month, toggleHabit }) {
   const days = buildMonthDays(year, month);
@@ -61,8 +75,6 @@ function MiniCalendar({ habit, logs, year, month, toggleHabit }) {
   );
 }
 
-// Accepts `logs` directly instead of `isCompleted` so React.memo
-// detects prop changes (new array ref) whenever the store updates.
 function HabitCardMobile({ habit, logs, year, month, toggleHabit, onDelete, streak }) {
   const [expanded, setExpanded] = useState(false);
   const today = new Date();
@@ -85,6 +97,28 @@ function HabitCardMobile({ habit, logs, year, month, toggleHabit, onDelete, stre
   ).length;
   const pct = days.length > 0 ? Math.round((completedCount / days.length) * 100) : 0;
 
+  // ── Triple-click streak ────────────────────────────────────────────────────
+  const [streakTip, setStreakTip] = useState('');
+  const clickCountRef = useRef(0);
+  const clickTimerRef = useRef(null);
+  const tipTimerRef   = useRef(null);
+
+  const handleStreakClick = useCallback((e) => {
+    e.stopPropagation();
+    clickCountRef.current += 1;
+    clearTimeout(clickTimerRef.current);
+    clickTimerRef.current = setTimeout(() => {
+      if (clickCountRef.current >= 3 && streak >= 1) {
+        const msg = STREAK_MSGS[globalMsgIdx % STREAK_MSGS.length](streak);
+        globalMsgIdx++;
+        setStreakTip(msg);
+        clearTimeout(tipTimerRef.current);
+        tipTimerRef.current = setTimeout(() => setStreakTip(''), 3000);
+      }
+      clickCountRef.current = 0;
+    }, 400);
+  }, [streak]);
+
   return (
     <div className="bg-bg-card border border-bg-border rounded-2xl overflow-hidden animate-fade-in">
       <div className="flex items-center gap-3 p-4">
@@ -99,8 +133,22 @@ function HabitCardMobile({ habit, logs, year, month, toggleHabit, onDelete, stre
               />
             </div>
             <span className="text-[10px] text-text-muted shrink-0">{pct}%</span>
+
             {streak >= 3 && (
-              <span className="text-[10px] font-bold text-amber-400">🔥{streak}</span>
+              <div className="relative">
+                <span
+                  onClick={handleStreakClick}
+                  className="text-[10px] font-bold text-amber-400 cursor-pointer select-none"
+                  title="Triple-tap me!"
+                >
+                  🔥{streak}
+                </span>
+                {streakTip && (
+                  <div className="absolute bottom-full right-0 mb-2 w-44 bg-bg-card border border-amber-400/25 rounded-xl px-3 py-2 text-[11px] text-amber-300 text-center shadow-2xl z-50 animate-fade-in leading-snug">
+                    {streakTip}
+                  </div>
+                )}
+              </div>
             )}
           </div>
         </div>

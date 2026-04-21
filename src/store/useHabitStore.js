@@ -16,6 +16,9 @@ const DEFAULT_HABITS = [
   { name: 'Cold Shower', emoji: '🚿', color: '#3b82f6' },
 ];
 
+// Used to detect "fresh seeded" local state vs real user data
+const DEFAULT_HABIT_NAMES = new Set(DEFAULT_HABITS.map((h) => h.name));
+
 const EMOJI_OPTIONS = ['⭐', '🎯', '🔥', '💪', '🧘', '✍️', '🎨', '🎵', '🏃', '🥗'];
 const COLOR_OPTIONS = ['#7c5cfc', '#10b981', '#f59e0b', '#3b82f6', '#ef4444', '#ec4899'];
 
@@ -38,6 +41,60 @@ export const useHabitStore = create((set, get) => ({
       set({ habits: seeded, logs, loading: false });
     } else {
       set({ habits, logs, loading: false });
+    }
+  },
+
+  // ── Cloud restore ────────────────────────────────────────────────────────
+  // Called after a Google sign-in resolves a squad user.
+  // Safe to overwrite when local data is either empty or all-default (auto-seeded),
+  // which means the user opened the app on a new device for the first time.
+  restoreFromCloud: async (cloudHabits, cloudLogs) => {
+    if (!cloudHabits?.length) return false;
+
+    const existingHabits = await habitsTable.getAll();
+    const localIsDefault =
+      existingHabits.length === 0 ||
+      existingHabits.every((h) => DEFAULT_HABIT_NAMES.has(h.name));
+
+    // If the user has real custom data locally, do not overwrite.
+    if (!localIsDefault) return false;
+
+    try {
+      await db.transaction('rw', db.habits, db.logs, async () => {
+        await db.habits.clear();
+        await db.logs.clear();
+
+        // Re-insert with original IDs so habitId references in logs match.
+        // Dexie / IndexedDB updates the key-generator to max(existing, inserted) + 1,
+        // so subsequent addHabit() calls will not collide.
+        for (const h of cloudHabits) {
+          await db.habits.put({
+            id: h.id,
+            name: h.name,
+            emoji: h.emoji ?? '',
+            color: h.color ?? '#7c5cfc',
+            createdAt: new Date().toISOString(),
+          });
+        }
+
+        for (const l of cloudLogs ?? []) {
+          await db.logs.add({
+            habitId: l.habitId,
+            date: l.date,
+            completed: l.completed,
+          });
+        }
+      });
+
+      const [newHabits, newLogs] = await Promise.all([
+        habitsTable.getAll(),
+        logsTable.getAll(),
+      ]);
+      set({ habits: newHabits, logs: newLogs });
+      return true;
+    } catch (e) {
+      console.error('[HabitStore] restoreFromCloud failed:', e);
+      return false;
     }
   },
 

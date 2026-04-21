@@ -62,7 +62,11 @@ function ClearDataModal({ onClose, onConfirm }) {
   );
 }
 
-export default function Header({ year, month, onPrev, onNext, onExport, onImport, onClearData, onOpenSquad }) {
+export default function Header({
+  year, month, onPrev, onNext, onExport, onImport, onClearData, onOpenSquad,
+  maishaActive = false,
+  is5amClub    = false,
+}) {
   const fileRef = useRef(null);
   const menuRef = useRef(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -112,6 +116,13 @@ export default function Header({ year, month, onPrev, onNext, onExport, onImport
     },
   ];
 
+  // Resolve subtitle — MAISHA takes priority, then 5am Club, then default
+  const subtitle = maishaActive
+    ? 'Maisha > everything else 💖'
+    : is5amClub
+    ? '🌅 You didn\'t hit snooze · One quiet win'
+    : 'Build the life you want — one day at a time';
+
   return (
     <>
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between mb-8">
@@ -119,8 +130,18 @@ export default function Header({ year, month, onPrev, onNext, onExport, onImport
           <h1 className="font-syne text-3xl sm:text-4xl font-extrabold tracking-tight text-white leading-none">
             Habit Tracker
           </h1>
-          <p className="text-xs text-text-muted uppercase tracking-widest mt-1.5">
-            Build the life you want — one day at a time
+          <p
+            key={subtitle}
+            className={[
+              'text-xs uppercase tracking-widest mt-1.5 transition-colors duration-300 animate-fade-in',
+              maishaActive
+                ? 'text-violet-400'
+                : is5amClub
+                ? 'text-amber-400'
+                : 'text-text-muted',
+            ].join(' ')}
+          >
+            {subtitle}
           </p>
         </div>
 
@@ -188,10 +209,8 @@ export default function Header({ year, month, onPrev, onNext, onExport, onImport
         </div>
       </header>
 
-      {/* Hidden file input */}
       <input ref={fileRef} type="file" accept=".json" className="hidden" onChange={handleFile} />
 
-      {/* Clear modal */}
       {showClearModal && (
         <ClearDataModal
           onClose={() => setShowClearModal(false)}

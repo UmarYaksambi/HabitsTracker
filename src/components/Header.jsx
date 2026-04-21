@@ -98,7 +98,7 @@ export default function Header({ year, month, onPrev, onNext, onExport, onImport
     { divider: true },
     {
       icon: <Users size={13} className="text-violet-400" />,
-      label: 'Squad Sync',
+      label: 'InnerCircle',
       sublabel: 'View friends\' habits',
       onClick: () => { onOpenSquad(); setMenuOpen(false); },
       accent: true,

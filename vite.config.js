@@ -9,8 +9,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icons/icon.svg'],
       manifest: {
-        name: 'Habit Tracker',
-        short_name: 'Habits',
+        name: 'BeforeNine',
+        short_name: 'BeforeNine',
         description: 'Track your daily habits and build a better life.',
         theme_color: '#0a0a0f',
         background_color: '#0a0a0f',

@@ -4,23 +4,24 @@ import { habitsTable } from '../db/habits.table';
 import { logsTable } from '../db/logs.table';
 
 const DEFAULT_HABITS = [
-  { name: 'Wake up at 5:00', emoji: '⏰', color: '#7c5cfc' },
-  { name: 'Gym', emoji: '🏋️', color: '#10b981' },
-  { name: 'Reading / Learning', emoji: '📚', color: '#f59e0b' },
-  { name: 'Day Planning', emoji: '📋', color: '#3b82f6' },
-  { name: 'Budget Tracking', emoji: '💰', color: '#10b981' },
-  { name: 'Project Work', emoji: '💻', color: '#7c5cfc' },
-  { name: 'No Alcohol', emoji: '🚫', color: '#ef4444' },
-  { name: 'Social Media Detox', emoji: '🌿', color: '#10b981' },
-  { name: 'Goal Journaling', emoji: '📓', color: '#f59e0b' },
-  { name: 'Cold Shower', emoji: '🚿', color: '#3b82f6' },
+  { name: 'Pray Fajr', emoji: '🌅', color: '#7c3aed' },
+  { name: '4 Daily Prayers', emoji: '🕌', color: '#059669' },
+  { name: 'Drink 2L Water', emoji: '💧', color: '#2563eb' },
+  { name: 'LeetCode POTD', emoji: '🧠', color: '#eab308' },
+  { name: 'LeetCode Practice', emoji: '💻', color: '#7c3aed' },
+  { name: 'Long Run', emoji: '🏃', color: '#dc2626' },
+  { name: 'Workout', emoji: '💪', color: '#ea580c' },
+  { name: 'Reading / Learning', emoji: '📚', color: '#ca8a04' },
+  { name: 'Journaling', emoji: '✍️', color: '#0ea5e9' },
 ];
 
 // Used to detect "fresh seeded" local state vs real user data
 const DEFAULT_HABIT_NAMES = new Set(DEFAULT_HABITS.map((h) => h.name));
 
-const EMOJI_OPTIONS = ['⭐', '🎯', '🔥', '💪', '🧘', '✍️', '🎨', '🎵', '🏃', '🥗'];
+const EMOJI_OPTIONS = ['⭐', '🎯', '🔥', '💪', '😴', '✍️', '🤲', '📚', '🏃', '🥗'];
 const COLOR_OPTIONS = ['#7c5cfc', '#10b981', '#f59e0b', '#3b82f6', '#ef4444', '#ec4899'];
+
+let initPromise = null; 
 
 export const useHabitStore = create((set, get) => ({
   habits: [],
@@ -28,20 +29,28 @@ export const useHabitStore = create((set, get) => ({
   loading: true,
 
   loadAll: async () => {
-    const [habits, logs] = await Promise.all([
-      habitsTable.getAll(),
-      logsTable.getAll(),
-    ]);
-
-    if (habits.length === 0) {
-      for (let i = 0; i < DEFAULT_HABITS.length; i++) {
-        await habitsTable.add(DEFAULT_HABITS[i]);
-      }
-      const seeded = await habitsTable.getAll();
-      set({ habits: seeded, logs, loading: false });
-    } else {
-      set({ habits, logs, loading: false });
+    if (initPromise) {
+      return initPromise;
     }
+
+    initPromise = (async () => {
+      const [habits, logs] = await Promise.all([
+        habitsTable.getAll(),
+        logsTable.getAll(),
+      ]);
+
+      if (habits.length === 0) {
+        for (let i = 0; i < DEFAULT_HABITS.length; i++) {
+          await habitsTable.add(DEFAULT_HABITS[i]);
+        }
+        const seeded = await habitsTable.getAll();
+        set({ habits: seeded, logs, loading: false });
+      } else {
+        set({ habits, logs, loading: false });
+      }
+    })();
+
+    await initPromise;
   },
 
   // ── Cloud restore ────────────────────────────────────────────────────────

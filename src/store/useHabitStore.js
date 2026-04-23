@@ -4,8 +4,7 @@ import { habitsTable } from '../db/habits.table';
 import { logsTable } from '../db/logs.table';
 
 const DEFAULT_HABITS = [
-  { name: 'Pray Fajr', emoji: '🌅', color: '#7c3aed' },
-  { name: '4 Daily Prayers', emoji: '🕌', color: '#059669' },
+  { name: 'Wake up at 5AM', emoji: '🌅', color: '#7c3aed' },
   { name: 'Drink 2L Water', emoji: '💧', color: '#2563eb' },
   { name: 'LeetCode POTD', emoji: '🧠', color: '#eab308' },
   { name: 'LeetCode Practice', emoji: '💻', color: '#7c3aed' },

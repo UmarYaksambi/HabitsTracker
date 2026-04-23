@@ -303,13 +303,20 @@ function InviteCodePanel({ generateInviteCode, myUser }) {
     setCode(c); setGen(false); setCopied(false);
   };
 
-  const handleCopy = async () => {
-    if (!code) return;
-    const text = `Join me on BeforeNine — a habit tracker focused on consistency.
+const handleCopy = async () => {
+  if (!code) return;
+
+  const text = `Join me on BeforeNine — a habit tracker focused on consistency.
 
     Username: @${myUser.username}
     Invite code: ${code}
-    Single-use • Expires in 24h`;    const ok = await copyText(text);
+    Single-use • Expires in 24h
+
+    https://beforenine.vercel.app
+
+    Note: This invite works one-way (adds you to my network).`;
+
+    const ok = await copyText(text);
     if (ok) { setCopied(true); setTimeout(() => setCopied(false), 2500); }
     else { setFailed(true); setTimeout(() => setFailed(false), 3000); }
   };
